@@ -157,17 +157,25 @@ export function MapCanvas({
   }, [visibleRoads, loading, onStatsChange]);
 
   const tileUrl = useMemo(() => {
+    if (basemap === "leo") {
+      // Proxied Sentinel-2 LEO tiles (CDSE Process API) — see /api/satellite/basemap
+      return "/api/satellite/basemap/{z}/{x}/{y}";
+    }
     if (basemap === "esri") {
       return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
     }
-    // Free OSM tiles — no API key required
     return "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
   }, [basemap]);
 
   const attribution =
-    basemap === "esri"
-      ? "Tiles &copy; Esri"
-      : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+    basemap === "leo"
+      ? '&copy; <a href="https://dataspace.copernicus.eu/">Copernicus Sentinel-2</a>'
+      : basemap === "esri"
+        ? "Tiles &copy; Esri"
+        : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+
+  const maxZoom = basemap === "leo" ? 15 : 18;
+  const minZoom = basemap === "leo" ? 6 : 5;
 
   return (
     <div className="re-map-shell relative h-full w-full">
@@ -181,7 +189,14 @@ export function MapCanvas({
         preferCanvas
         scrollWheelZoom
       >
-        <TileLayer url={tileUrl} attribution={attribution} />
+        <TileLayer
+          key={basemap}
+          url={tileUrl}
+          attribution={attribution}
+          minZoom={minZoom}
+          maxZoom={maxZoom}
+          maxNativeZoom={maxZoom}
+        />
         <ZoomControl position="bottomright" />
         <ViewportRoadsLoader onBbox={handleViewport} />
         <AoiDrawControl onAoiChange={onAoiChange} />

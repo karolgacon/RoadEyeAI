@@ -9,7 +9,7 @@ Monitorowanie stanu nawierzchni dróg w Polsce: **Leaflet + PostGIS (OSM)** → 
 | App | Next.js 15 (App Router), TypeScript, Tailwind, shadcn/ui |
 | Mapa | Leaflet / OSM (+ Esri Imagery) |
 | DB | Supabase Free (PostgreSQL + PostGIS) |
-| Satelita | **Sentinel-2 LEO** przez Copernicus CDSE; bez kluczy → Esri preview |
+| Satelita | **Sentinel-2 LEO** (analiza + basemap LEO); HD = Esri; bez kluczy → Esri fallback |
 | AI | Google Gemini Vision (mock bez klucza) |
 | Deploy | Vercel Hobby |
 

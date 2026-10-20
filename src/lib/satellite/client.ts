@@ -5,9 +5,12 @@ import { fetchEsriWorldImagerySnapshot } from "@/lib/satellite/esriSnapshot";
 import {
   NoSceneAvailableError,
   RateLimitError,
-  SatelliteConfigError,
   SatelliteError,
 } from "@/lib/satellite/errors";
+import {
+  getCopernicusAccessToken,
+  hasCopernicusCredentials,
+} from "@/lib/satellite/token";
 import type {
   HdPreviewImage,
   SatelliteFetchRequest,
@@ -15,57 +18,6 @@ import type {
 } from "@/lib/satellite/types";
 import type { EvalscriptId, SatelliteImageResponse } from "@/types/satellite";
 import { randomUUID } from "node:crypto";
-
-function readRequired(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new SatelliteConfigError(`Brak zmiennej środowiskowej ${name}`);
-  }
-  return value;
-}
-
-function hasCopernicusCredentials(): boolean {
-  return Boolean(
-    process.env.COPERNICUS_CLIENT_ID?.trim() &&
-      process.env.COPERNICUS_CLIENT_SECRET?.trim(),
-  );
-}
-
-async function getCopernicusToken(): Promise<string> {
-  const clientId = readRequired("COPERNICUS_CLIENT_ID");
-  const clientSecret = readRequired("COPERNICUS_CLIENT_SECRET");
-  const tokenUrl =
-    process.env.COPERNICUS_TOKEN_URL?.trim() ||
-    "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token";
-
-  const body = new URLSearchParams({
-    grant_type: "client_credentials",
-    client_id: clientId,
-    client_secret: clientSecret,
-  });
-
-  const response = await fetch(tokenUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-
-  if (response.status === 429) {
-    throw new RateLimitError();
-  }
-  if (!response.ok) {
-    throw new SatelliteError(
-      "UPSTREAM",
-      `OAuth Copernicus nie powiódł się (${response.status})`,
-    );
-  }
-
-  const json = (await response.json()) as { access_token?: string };
-  if (!json.access_token) {
-    throw new SatelliteConfigError("Brak access_token w odpowiedzi Copernicus");
-  }
-  return json.access_token;
-}
 
 async function fetchHdPreview(bbox: SatelliteFetchRequest["bbox"]): Promise<
   HdPreviewImage | undefined
@@ -95,7 +47,7 @@ async function fetchHdPreview(bbox: SatelliteFetchRequest["bbox"]): Promise<
 async function fetchFromProcessApi(
   request: SatelliteFetchRequest,
 ): Promise<SatelliteImageResponse> {
-  const token = await getCopernicusToken();
+  const token = await getCopernicusAccessToken();
   const processUrl =
     process.env.COPERNICUS_PROCESS_API_URL?.trim() ||
     "https://sh.dataspace.copernicus.eu/api/v1/process";
