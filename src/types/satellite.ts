@@ -4,6 +4,20 @@ export type EvalscriptId = "true-color" | "ndvi" | "ndmi";
 
 export type BBox = [west: number, south: number, east: number, north: number];
 
+export interface SatelliteScanMeta {
+  width?: number;
+  height?: number;
+  mimeType?: "image/png" | "image/jpeg" | "image/svg+xml";
+  hdPreviewUrl?: string;
+  visionSource?: "leo" | "esri";
+  quality?: {
+    cloudCoverage?: number;
+    textureScore?: number;
+    usable?: boolean;
+    reason?: string;
+  };
+}
+
 export interface SatelliteImageResponse {
   scanId: string;
   source: SatelliteSource;
@@ -16,4 +30,5 @@ export interface SatelliteImageResponse {
   imageUrl: string;
   mimeType: "image/png" | "image/jpeg" | "image/svg+xml";
   evalscriptId: EvalscriptId;
+  meta?: SatelliteScanMeta;
 }

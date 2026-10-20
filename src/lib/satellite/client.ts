@@ -11,10 +11,12 @@ import {
   getCopernicusAccessToken,
   hasCopernicusCredentials,
 } from "@/lib/satellite/token";
+import { measureLeoQuality } from "@/lib/satellite/quality";
 import type {
   HdPreviewImage,
   SatelliteFetchRequest,
   SatelliteFetchResult,
+  VisionImageSource,
 } from "@/lib/satellite/types";
 import type { EvalscriptId, SatelliteImageResponse } from "@/types/satellite";
 import { randomUUID } from "node:crypto";
@@ -70,7 +72,8 @@ async function fetchFromProcessApi(
               from: `${request.dateFrom}T00:00:00Z`,
               to: `${request.dateTo}T23:59:59Z`,
             },
-            maxCloudCoverage: 80,
+            maxCloudCoverage: 100,
+            mosaickingOrder: "leastCC",
           },
           processing: {
             upsampling: "BICUBIC",
@@ -125,7 +128,8 @@ async function fetchFromProcessApi(
     source: "copernicus",
     bbox: request.bbox,
     acquiredAt: new Date(`${request.dateTo}T12:00:00Z`).toISOString(),
-    cloudCoverage: 0.12,
+    // Placeholder — replaced with SCL stats immediately after fetch.
+    cloudCoverage: 0,
     width,
     height,
     bands:
@@ -140,10 +144,23 @@ async function fetchFromProcessApi(
   };
 }
 
+function pickVisionSource(
+  leoUsable: boolean,
+  hasHd: boolean,
+): VisionImageSource {
+  if (leoUsable) {
+    return "leo";
+  }
+  if (hasHd) {
+    return "esri";
+  }
+  return "leo";
+}
+
 /**
  * Prefer real Sentinel-2 LEO (Copernicus) when credentials exist and mock is off.
- * Otherwise Esri basemap preview (aligned to EPSG:4326 for OSM overlays).
- * When LEO succeeds, also attach an Esri HD frame for the same bbox (UI only).
+ * Measures real SCL cloud + texture; falls back Vision to Esri HD only when LEO
+ * is unusable (clouds / blur).
  */
 export async function fetchSatelliteImage(
   request: SatelliteFetchRequest,
@@ -154,15 +171,27 @@ export async function fetchSatelliteImage(
 
   let image: SatelliteImageResponse;
   let hdPreview: HdPreviewImage | undefined;
+  let visionSource: VisionImageSource = "leo";
+  let quality = undefined as SatelliteFetchResult["quality"];
 
   if (!forcePreview && canUseLeo) {
     try {
-      const [leo, hd] = await Promise.all([
+      const [leo, hd, qualityMeasure] = await Promise.all([
         fetchFromProcessApi(request),
         fetchHdPreview(request.bbox),
+        measureLeoQuality({
+          bbox: request.bbox,
+          dateFrom: request.dateFrom,
+          dateTo: request.dateTo,
+        }),
       ]);
-      image = leo;
+      image = {
+        ...leo,
+        cloudCoverage: qualityMeasure.cloudCoverage,
+      };
       hdPreview = hd;
+      quality = qualityMeasure;
+      visionSource = pickVisionSource(qualityMeasure.usable, Boolean(hd));
     } catch (error) {
       console.warn(
         "[RoadEye AI] Sentinel-2/CDSE failed, falling back to Esri preview:",
@@ -176,6 +205,7 @@ export async function fetchSatelliteImage(
         width: request.width,
         height: request.height,
       });
+      visionSource = "esri";
     }
   } else {
     if (!forcePreview && !canUseLeo) {
@@ -191,15 +221,23 @@ export async function fetchSatelliteImage(
       width: request.width,
       height: request.height,
     });
+    visionSource = image.source === "esri" ? "esri" : "leo";
   }
 
-  const cloudBlocked = image.cloudCoverage > env.cloudCoverageThreshold;
+  // Block only when Vision would have to use unusable LEO and no HD fallback.
+  const cloudBlocked =
+    visionSource === "leo" &&
+    image.source === "copernicus" &&
+    (quality ? !quality.usable : image.cloudCoverage > env.cloudCoverageThreshold) &&
+    !hdPreview;
 
   return {
     image,
     cloudBlocked,
     threshold: env.cloudCoverageThreshold,
     hdPreview,
+    visionSource,
+    quality,
   };
 }
 

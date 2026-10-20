@@ -54,6 +54,13 @@ interface FetchResponse {
     height: number;
     source: "esri";
   } | null;
+  visionSource?: "leo" | "esri";
+  quality?: {
+    cloudCoverage: number;
+    textureScore: number;
+    usable: boolean;
+    reason: string;
+  } | null;
   message?: string;
 }
 
@@ -99,6 +106,8 @@ export function GisDashboard() {
   const [scanPreview, setScanPreview] = useState<{
     image: SatelliteImageResponse;
     hdPreview?: FetchResponse["hdPreview"];
+    visionSource?: "leo" | "esri";
+    quality?: FetchResponse["quality"];
     cloudBlocked: boolean;
     threshold: number;
     message?: string;
@@ -152,6 +161,8 @@ export function GisDashboard() {
         setScanPreview({
           image: data.image,
           hdPreview: data.hdPreview ?? null,
+          visionSource: data.visionSource ?? "leo",
+          quality: data.quality ?? null,
           cloudBlocked: data.cloudBlocked,
           threshold: data.threshold,
           message: data.message,
@@ -237,12 +248,11 @@ export function GisDashboard() {
         evidenceImageUrl: evidenceUrl,
         evidenceBbox: evidenceBbox,
         evidenceSourceLabel:
-          data.evidence?.source === "copernicus" ||
-          scanPreview.image.source === "copernicus"
-            ? "Sentinel-2 LEO (Copernicus CDSE)"
-            : data.evidence?.source === "esri" ||
-                scanPreview.image.source === "esri"
-              ? "Esri — podgląd (nie LEO)"
+          data.visionSource === "esri" || data.evidence?.source === "esri"
+            ? "Analiza AI na HD (fallback — LEO nieczytelny)"
+            : data.evidence?.source === "copernicus" ||
+                scanPreview.image.source === "copernicus"
+              ? "Analiza AI na Sentinel-2 LEO"
               : "Podgląd zastępczy",
         roadGeometry: analysisGeom,
         road: selectedRoad
@@ -423,6 +433,8 @@ export function GisDashboard() {
         <SatellitePreview
           image={scanPreview.image}
           hdPreview={scanPreview.hdPreview}
+          visionSource={scanPreview.visionSource}
+          quality={scanPreview.quality}
           cloudBlocked={scanPreview.cloudBlocked}
           threshold={scanPreview.threshold}
           message={scanPreview.message}

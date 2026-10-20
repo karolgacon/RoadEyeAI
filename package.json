@@ -11,7 +11,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "tsx --test src/lib/map/geo.test.ts src/lib/map/roadWindow.test.ts src/lib/map/defectGeo.test.ts src/lib/ai/schema.test.ts src/lib/cache/ttlCache.test.ts src/lib/satellite/mercatorTile.test.ts",
+    "test": "tsx --test src/lib/map/geo.test.ts src/lib/map/roadWindow.test.ts src/lib/map/defectGeo.test.ts src/lib/ai/schema.test.ts src/lib/cache/ttlCache.test.ts src/lib/satellite/mercatorTile.test.ts src/lib/satellite/quality.test.ts",
     "db:migrate": "node scripts/run-sql-file.mjs supabase/migrations/001_init_postgis.sql && node scripts/run-sql-file.mjs supabase/migrations/002_roads_bbox_rpc.sql && node scripts/run-sql-file.mjs supabase/migrations/003_satellite_source_esri.sql",
     "import:roads": "node scripts/import-poland-roads.mjs --include-secondary",
     "seed:roads": "node scripts/seed-major-roads.mjs"

@@ -84,17 +84,35 @@ export async function POST(request: Request) {
     const saved = await persistSatelliteScan({
       image: result.image,
       roadId,
+      meta: {
+        visionSource: result.visionSource,
+        quality: result.quality,
+        hdPreviewUrl: result.hdPreview?.imageUrl,
+      },
     });
+
+    const qualityNote =
+      result.visionSource === "esri" && result.quality
+        ? result.quality.reason === "clouds"
+          ? `LEO zachmurzony (${(result.quality.cloudCoverage * 100).toFixed(0)}% SCL) — AI użyje HD.`
+          : result.quality.reason === "blur"
+            ? "LEO zbyt rozmazany — AI użyje HD."
+            : "LEO nieczytelny — AI użyje HD."
+        : result.visionSource === "leo"
+          ? `LEO OK (chmury ${(saved.cloudCoverage * 100).toFixed(0)}% SCL) — AI analizuje Sentinel-2.`
+          : undefined;
 
     return NextResponse.json({
       ok: true,
       cloudBlocked: result.cloudBlocked,
       threshold: result.threshold,
-      image: saved,
+      image: { ...saved, meta: { ...saved.meta, visionSource: result.visionSource, quality: result.quality, hdPreviewUrl: result.hdPreview?.imageUrl } },
       hdPreview: result.hdPreview ?? null,
+      visionSource: result.visionSource,
+      quality: result.quality ?? null,
       message: result.cloudBlocked
-        ? `Zachmurzenie ${(saved.cloudCoverage * 100).toFixed(0)}% > próg ${(result.threshold * 100).toFixed(0)}% — analiza AI będzie zablokowana`
-        : undefined,
+        ? `Zachmurzenie ${(saved.cloudCoverage * 100).toFixed(0)}% — brak czytelnego LEO i HD, analiza zablokowana.`
+        : qualityNote,
     });
   } catch (error) {
     if (error instanceof SatelliteError) {

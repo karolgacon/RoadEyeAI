@@ -35,6 +35,8 @@ async function uploadImageIfPossible(
 export async function persistSatelliteScan(params: {
   image: SatelliteImageResponse;
   roadId?: string | null;
+  /** Extra JSON fields stored in satellite_scans.meta (HD URL, quality, visionSource). */
+  meta?: Record<string, unknown>;
 }): Promise<SatelliteImageResponse> {
   const pool = getPgPool();
   const imagePath = await uploadImageIfPossible(params.image.scanId, params.image);
@@ -67,6 +69,7 @@ export async function persistSatelliteScan(params: {
         width: params.image.width,
         height: params.image.height,
         mimeType: params.image.mimeType,
+        ...(params.meta ?? {}),
       }),
     ],
   );
@@ -74,6 +77,12 @@ export async function persistSatelliteScan(params: {
   return {
     ...params.image,
     imageUrl: imagePath,
+    meta: {
+      width: params.image.width,
+      height: params.image.height,
+      mimeType: params.image.mimeType,
+      ...(params.meta ?? {}),
+    },
   };
 }
 
@@ -93,6 +102,14 @@ export async function getSatelliteScanById(
       width?: number;
       height?: number;
       mimeType?: "image/png" | "image/jpeg" | "image/svg+xml";
+      hdPreviewUrl?: string;
+      visionSource?: "leo" | "esri";
+      quality?: {
+        cloudCoverage?: number;
+        textureScore?: number;
+        usable?: boolean;
+        reason?: string;
+      };
     };
     west: number;
     south: number;
@@ -130,5 +147,6 @@ export async function getSatelliteScanById(
     imageUrl: row.image_path,
     mimeType: row.meta?.mimeType ?? "image/png",
     evalscriptId: row.evalscript_id,
+    meta: row.meta ?? undefined,
   };
 }

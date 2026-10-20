@@ -101,12 +101,22 @@ export async function POST(request: Request) {
       ? roadAnalysisWindow(road.geometryGeoJson).geometry
       : null;
 
+    const visionSource = scan.meta?.visionSource ?? "leo";
+    const useHd =
+      visionSource === "esri" && Boolean(scan.meta?.hdPreviewUrl);
+    const visionImageUrl = useHd
+      ? (scan.meta!.hdPreviewUrl as string)
+      : scan.imageUrl;
+    // HD mosaic is treated as clear for the cloud gate; LEO uses measured SCL.
+    const visionCloud = useHd ? 0 : scan.cloudCoverage;
+    const visionSourceLabel = useHd ? "esri" : scan.source;
+
     const vision = await runRoadVisionAnalysis({
-      imageUrl: scan.imageUrl,
+      imageUrl: visionImageUrl,
       bbox: scan.bbox,
-      cloudCoverage: scan.cloudCoverage,
+      cloudCoverage: visionCloud,
       evalscriptId: scan.evalscriptId,
-      source: scan.source,
+      source: visionSourceLabel,
       roadGeometry: analysisGeom,
     });
 
@@ -123,12 +133,13 @@ export async function POST(request: Request) {
       provider: vision.provider,
       modelId: vision.modelId,
       report,
+      visionSource: useHd ? "esri" : "leo",
       evidence: {
-        imageUrl: scan.imageUrl,
+        imageUrl: visionImageUrl,
         bbox: scan.bbox,
-        width: scan.width,
-        height: scan.height,
-        source: scan.source,
+        width: useHd ? 1024 : scan.width,
+        height: useHd ? 1024 : scan.height,
+        source: visionSourceLabel,
       },
     });
 

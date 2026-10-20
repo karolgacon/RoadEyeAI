@@ -1,4 +1,5 @@
 import type { BBox, EvalscriptId, SatelliteImageResponse } from "@/types/satellite";
+import type { LeoQuality } from "@/lib/satellite/quality";
 
 export interface SatelliteFetchRequest {
   bbox: BBox;
@@ -10,7 +11,7 @@ export interface SatelliteFetchRequest {
   height?: number;
 }
 
-/** Optional sharp Esri frame for the same bbox (UI only — AI uses `image`). */
+/** Optional sharp Esri frame for the same bbox (UI + HD Vision fallback). */
 export interface HdPreviewImage {
   imageUrl: string;
   mimeType: "image/jpeg";
@@ -19,10 +20,15 @@ export interface HdPreviewImage {
   source: "esri";
 }
 
+export type VisionImageSource = "leo" | "esri";
+
 export interface SatelliteFetchResult {
   image: SatelliteImageResponse;
   cloudBlocked: boolean;
   threshold: number;
   /** Present when LEO scan succeeded and Esri HD snapshot is available. */
   hdPreview?: HdPreviewImage;
+  /** Which frame Gemini should analyze. */
+  visionSource: VisionImageSource;
+  quality?: LeoQuality;
 }

@@ -10,9 +10,18 @@ interface HdPreview {
   source: "esri";
 }
 
+interface QualityInfo {
+  cloudCoverage: number;
+  textureScore: number;
+  usable: boolean;
+  reason: string;
+}
+
 interface SatellitePreviewProps {
   image: SatelliteImageResponse;
   hdPreview?: HdPreview | null;
+  visionSource?: "leo" | "esri";
+  quality?: QualityInfo | null;
   cloudBlocked: boolean;
   threshold: number;
   message?: string;
@@ -24,6 +33,8 @@ interface SatellitePreviewProps {
 export function SatellitePreview({
   image,
   hdPreview = null,
+  visionSource = "leo",
+  quality = null,
   cloudBlocked,
   threshold,
   message,
@@ -33,6 +44,7 @@ export function SatellitePreview({
 }: SatellitePreviewProps) {
   const [mounted, setMounted] = useState(false);
   const showDual = image.source === "copernicus" && Boolean(hdPreview?.imageUrl);
+  const aiOnHd = visionSource === "esri" && Boolean(hdPreview?.imageUrl);
 
   useEffect(() => {
     setMounted(true);
@@ -41,6 +53,10 @@ export function SatellitePreview({
   if (!mounted) {
     return null;
   }
+
+  const cloudPct = (
+    (quality?.cloudCoverage ?? image.cloudCoverage) * 100
+  ).toFixed(0);
 
   return createPortal(
     <div className="fixed inset-0 z-[10020] flex items-end justify-center sm:items-center sm:p-6">
@@ -65,11 +81,11 @@ export function SatellitePreview({
                   : "Podgląd zastępczy"}
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[#6b7280]">
-              {image.source === "copernicus"
-                ? showDual
-                  ? "HD = mozaika Esri (nie dzienna). LEO = Sentinel-2 — to źródło analizy AI (~10 m/px)."
-                  : "Scena LEO z CDSE — aktualna dostępna klatka z okna dat (nie wideo na żywo)."
-                : "Brak kluczy Copernicus — to mozaika Esri, nie dzienna scena LEO. Ustaw COPERNICUS_CLIENT_ID/SECRET i SATELLITE_MOCK_MODE=false."}
+              {aiOnHd
+                ? "LEO nieczytelny (chmury/rozmazanie) — AI przełączy się na HD tylko dla tej analizy."
+                : image.source === "copernicus"
+                  ? "LEO czytelny — AI analizuje Sentinel-2. HD to tylko podgląd referencyjny."
+                  : "Brak kluczy Copernicus — mozaika Esri."}
             </p>
           </div>
           <button
@@ -88,12 +104,22 @@ export function SatellitePreview({
               <Frame
                 src={hdPreview!.imageUrl}
                 alt="Podgląd HD Esri"
-                caption="Podgląd HD (Esri) — nie dzienna scena"
+                caption={
+                  aiOnHd
+                    ? "HD (Esri) — źródło analizy AI (fallback)"
+                    : "Podgląd HD (Esri) — referencja"
+                }
+                active={aiOnHd}
               />
               <Frame
                 src={image.imageUrl}
                 alt="Scena Sentinel-2 LEO"
-                caption="LEO Sentinel-2 — klatka analizy AI"
+                caption={
+                  aiOnHd
+                    ? "LEO Sentinel-2 — odrzucony (jakość)"
+                    : "LEO Sentinel-2 — źródło analizy AI"
+                }
+                active={!aiOnHd}
               />
             </div>
           ) : (
@@ -107,15 +133,19 @@ export function SatellitePreview({
 
           <dl className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
             <Info label="Evalscript" value={image.evalscriptId} />
+            <Info label="Chmury SCL" value={`${cloudPct}%`} />
             <Info
-              label="Zachmurzenie"
-              value={`${(image.cloudCoverage * 100).toFixed(0)}%`}
+              label="Tekstura LEO"
+              value={
+                quality
+                  ? quality.textureScore.toFixed(3)
+                  : "—"
+              }
             />
             <Info
-              label="Acquired"
-              value={new Date(image.acquiredAt).toLocaleDateString("pl-PL")}
+              label="AI bierze"
+              value={aiOnHd ? "HD (fallback)" : "LEO"}
             />
-            <Info label="Rozmiar" value={`${image.width}×${image.height}`} />
           </dl>
 
           {cloudBlocked ? (
@@ -123,12 +153,21 @@ export function SatellitePreview({
               <Cloud className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
               <p>
                 {message ??
-                  `Cloud > ${(threshold * 100).toFixed(0)}% — analiza AI Vision zablokowana. Wybierz inny zakres dat.`}
+                  `LEO nieczytelny (chmury > ${(threshold * 100).toFixed(0)}%) i brak HD — analiza zablokowana.`}
               </p>
             </div>
           ) : (
-            <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-950">
-              Scena poniżej progu chmur — możesz uruchomić Gemini Vision na klatce LEO.
+            <div
+              className={`mt-3 rounded-xl border px-3 py-2.5 text-[12.5px] ${
+                aiOnHd
+                  ? "border-amber-200 bg-amber-50 text-amber-950"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-950"
+              }`}
+            >
+              {message ??
+                (aiOnHd
+                  ? "Fallback HD aktywny — możesz uruchomić Gemini Vision."
+                  : "LEO poniżej progu chmur/rozmazania — możesz uruchomić Gemini Vision.")}
             </div>
           )}
         </div>
@@ -141,7 +180,11 @@ export function SatellitePreview({
             className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#111827] text-[13px] font-semibold text-white transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-40"
           >
             <Sparkles className="h-4 w-4" />
-            {analyzingAi ? "Analizuję Vision…" : "Uruchom analizę AI"}
+            {analyzingAi
+              ? "Analizuję Vision…"
+              : aiOnHd
+                ? "Uruchom analizę AI (HD)"
+                : "Uruchom analizę AI (LEO)"}
           </button>
         </div>
       </div>
@@ -154,10 +197,12 @@ function Frame({
   src,
   alt,
   caption,
+  active,
 }: {
   src: string;
   alt: string;
   caption: string;
+  active?: boolean;
 }) {
   return (
     <figure className="space-y-1.5">
@@ -165,7 +210,11 @@ function Frame({
       <img
         src={src}
         alt={alt}
-        className="aspect-square w-full rounded-xl border border-black/[0.06] bg-[#111827] object-fill"
+        className={`aspect-square w-full rounded-xl border bg-[#111827] object-fill ${
+          active
+            ? "border-[#111827] ring-2 ring-[#111827]/20"
+            : "border-black/[0.06] opacity-90"
+        }`}
       />
       <figcaption className="text-[10px] leading-snug font-medium text-[#6b7280]">
         {caption}
