@@ -48,7 +48,7 @@ async function fetchHdPreview(bbox: SatelliteFetchRequest["bbox"]): Promise<
 
 async function fetchFromProcessApi(
   request: SatelliteFetchRequest,
-): Promise<SatelliteImageResponse> {
+): Promise<{ image: SatelliteImageResponse; pngBuffer: Buffer }> {
   const token = await getCopernicusAccessToken();
   const processUrl =
     process.env.COPERNICUS_PROCESS_API_URL?.trim() ||
@@ -120,27 +120,30 @@ async function fetchFromProcessApi(
     );
   }
 
-  const buffer = Buffer.from(await response.arrayBuffer());
-  const imageUrl = `data:image/png;base64,${buffer.toString("base64")}`;
+  const pngBuffer = Buffer.from(await response.arrayBuffer());
+  const imageUrl = `data:image/png;base64,${pngBuffer.toString("base64")}`;
 
   return {
-    scanId: randomUUID(),
-    source: "copernicus",
-    bbox: request.bbox,
-    acquiredAt: new Date(`${request.dateTo}T12:00:00Z`).toISOString(),
-    // Placeholder — replaced with SCL stats immediately after fetch.
-    cloudCoverage: 0,
-    width,
-    height,
-    bands:
-      request.evalscriptId === "true-color"
-        ? ["RGB"]
-        : request.evalscriptId === "ndvi"
-          ? ["NDVI"]
-          : ["NDMI"],
-    imageUrl,
-    mimeType: "image/png",
-    evalscriptId: request.evalscriptId,
+    pngBuffer,
+    image: {
+      scanId: randomUUID(),
+      source: "copernicus",
+      bbox: request.bbox,
+      acquiredAt: new Date(`${request.dateTo}T12:00:00Z`).toISOString(),
+      // Placeholder — replaced after quality measurement.
+      cloudCoverage: 0,
+      width,
+      height,
+      bands:
+        request.evalscriptId === "true-color"
+          ? ["RGB"]
+          : request.evalscriptId === "ndvi"
+            ? ["NDVI"]
+            : ["NDMI"],
+      imageUrl,
+      mimeType: "image/png",
+      evalscriptId: request.evalscriptId,
+    },
   };
 }
 
@@ -176,17 +179,18 @@ export async function fetchSatelliteImage(
 
   if (!forcePreview && canUseLeo) {
     try {
-      const [leo, hd, qualityMeasure] = await Promise.all([
+      const [leoResult, hd] = await Promise.all([
         fetchFromProcessApi(request),
         fetchHdPreview(request.bbox),
-        measureLeoQuality({
-          bbox: request.bbox,
-          dateFrom: request.dateFrom,
-          dateTo: request.dateTo,
-        }),
       ]);
+      const qualityMeasure = await measureLeoQuality({
+        bbox: request.bbox,
+        dateFrom: request.dateFrom,
+        dateTo: request.dateTo,
+        leoPng: leoResult.pngBuffer,
+      });
       image = {
-        ...leo,
+        ...leoResult.image,
         cloudCoverage: qualityMeasure.cloudCoverage,
       };
       hdPreview = hd;

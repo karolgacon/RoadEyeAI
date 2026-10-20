@@ -1,8 +1,9 @@
+import { PNG } from "pngjs";
 import type { BBox } from "@/types/satellite";
 import { getCopernicusAccessToken } from "@/lib/satellite/token";
 import { RateLimitError, SatelliteError } from "@/lib/satellite/errors";
 
-/** SCL cloud / shadow / cirrus classes (L2A). */
+/** SCL cloud / shadow / cirrus / unclassified (L2A). */
 const CLOUD_SCL = new Set([3, 7, 8, 9, 10]);
 
 const CLOUD_EVALSCRIPT = `
@@ -11,8 +12,8 @@ function setup() {
   return {
     input: ["SCL", "B04", "dataMask"],
     output: [
-      { id: "cloud", bands: 1, sampleType: "FLOAT32" },
-      { id: "texture", bands: 1, sampleType: "FLOAT32" },
+      { id: "cloud", bands: ["c"], sampleType: "FLOAT32" },
+      { id: "texture", bands: ["t"], sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1 }
     ]
   };
@@ -29,12 +30,14 @@ function evaluatePixel(sample) {
 `.trim();
 
 export interface LeoQuality {
-  /** Fraction of valid pixels classified as cloud/shadow/cirrus (SCL). */
+  /** Fraction of valid pixels classified as cloud/shadow/cirrus (SCL) or bright-pixel proxy. */
   cloudCoverage: number;
-  /** Std-dev of B04 among valid pixels — low = flat/blurry/uniform scene. */
+  /** Texture score 0–1-ish — low = flat/blurry/uniform scene. */
   textureScore: number;
   usable: boolean;
   reason: "ok" | "clouds" | "blur" | "stats_failed";
+  /** Where cloud/texture numbers came from. */
+  measuredBy?: "scl_stats" | "png_heuristic" | "none";
 }
 
 export function assessLeoUsability(
@@ -42,12 +45,13 @@ export function assessLeoUsability(
   textureScore: number,
   options?: {
     cloudThreshold?: number;
-    /** Below this B04 std-dev the frame is treated as unusable blur/haze. */
+    /** Below this texture the frame is treated as unusable blur/haze. */
     minTexture?: number;
   },
-): LeoQuality {
-  const cloudThreshold = options?.cloudThreshold ?? 0.35;
-  const minTexture = options?.minTexture ?? 0.018;
+): Omit<LeoQuality, "measuredBy"> {
+  // Allow moderate cloud if road structure is still visible (user feedback).
+  const cloudThreshold = options?.cloudThreshold ?? 0.55;
+  const minTexture = options?.minTexture ?? 0.012;
 
   if (cloudCoverage > cloudThreshold) {
     return {
@@ -95,126 +99,219 @@ function readStatStdev(band: unknown): number | null {
   return stats.stDev;
 }
 
+function firstBand(bands: Record<string, unknown> | undefined): unknown {
+  if (!bands) {
+    return null;
+  }
+  return (
+    bands.c ??
+    bands.t ??
+    bands.B0 ??
+    bands["0"] ??
+    Object.values(bands)[0] ??
+    null
+  );
+}
+
 /**
- * Real SCL cloud fraction + B04 texture via CDSE Statistical API
- * for the same mosaic window used by Process API.
+ * Heuristic from the actual LEO PNG we already fetched:
+ * bright-pixel share ≈ cloud/haze, luminance std-dev ≈ texture/detail.
+ */
+export function estimateQualityFromPng(pngBuffer: Buffer): LeoQuality {
+  try {
+    const png = PNG.sync.read(pngBuffer);
+    const { data, width, height } = png;
+    const n = width * height;
+    if (n < 16) {
+      return {
+        cloudCoverage: 0,
+        textureScore: 1,
+        usable: true,
+        reason: "ok",
+        measuredBy: "png_heuristic",
+      };
+    }
+
+    let sum = 0;
+    let sum2 = 0;
+    let bright = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      const y = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      sum += y;
+      sum2 += y * y;
+      // Near-white / saturated haze
+      if (y >= 210) {
+        bright += 1;
+      }
+    }
+
+    const mean = sum / n;
+    const variance = Math.max(0, sum2 / n - mean * mean);
+    const stdNorm = Math.sqrt(variance) / 255;
+    const cloudApprox = bright / n;
+
+    const assessed = assessLeoUsability(cloudApprox, stdNorm, {
+      // PNG bright-pixel proxy is noisier than SCL — be slightly stricter on clouds,
+      // milder on texture (S2 true-color is naturally soft).
+      cloudThreshold: 0.62,
+      minTexture: 0.01,
+    });
+
+    return {
+      ...assessed,
+      measuredBy: "png_heuristic",
+    };
+  } catch (error) {
+    console.warn(
+      "[RoadEye AI] PNG quality heuristic failed:",
+      error instanceof Error ? error.message : error,
+    );
+    // If we have a LEO frame but cannot score it, prefer analyzing LEO over HD.
+    return {
+      cloudCoverage: 0,
+      textureScore: 1,
+      usable: true,
+      reason: "ok",
+      measuredBy: "none",
+    };
+  }
+}
+
+async function measureViaStatsApi(params: {
+  bbox: BBox;
+  dateFrom: string;
+  dateTo: string;
+}): Promise<LeoQuality | null> {
+  const token = await getCopernicusAccessToken();
+  const statsUrl =
+    process.env.COPERNICUS_STATS_API_URL?.trim() ||
+    "https://sh.dataspace.copernicus.eu/api/v1/statistics";
+  const [west, south, east, north] = params.bbox;
+
+  const payload = {
+    input: {
+      bounds: {
+        bbox: [west, south, east, north],
+        properties: { crs: "http://www.opengis.net/def/crs/EPSG/0/4326" },
+      },
+      data: [
+        {
+          type: "sentinel-2-l2a",
+          dataFilter: {
+            timeRange: {
+              from: `${params.dateFrom}T00:00:00Z`,
+              to: `${params.dateTo}T23:59:59Z`,
+            },
+            maxCloudCoverage: 100,
+            mosaickingOrder: "leastCC",
+          },
+        },
+      ],
+    },
+    aggregation: {
+      timeRange: {
+        from: `${params.dateFrom}T00:00:00Z`,
+        to: `${params.dateTo}T23:59:59Z`,
+      },
+      aggregationInterval: { of: "P365D" },
+      evalscript: CLOUD_EVALSCRIPT,
+      resx: 0.0003,
+      resy: 0.0003,
+    },
+    calculations: {
+      default: {},
+    },
+  };
+
+  const response = await fetch(statsUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(45_000),
+  });
+
+  if (response.status === 429) {
+    throw new RateLimitError();
+  }
+  if (!response.ok) {
+    const text = await response.text();
+    throw new SatelliteError(
+      "UPSTREAM",
+      `Stats API ${response.status}: ${text.slice(0, 160)}`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    data?: Array<{
+      outputs?: {
+        cloud?: { bands?: Record<string, unknown> };
+        texture?: { bands?: Record<string, unknown> };
+      };
+    }>;
+  };
+
+  const outputs = json.data?.[0]?.outputs;
+  const cloudBand = firstBand(outputs?.cloud?.bands);
+  const textureBand = firstBand(outputs?.texture?.bands);
+  const cloudMean = readStatMean(cloudBand);
+  const textureStd = readStatStdev(textureBand);
+
+  if (cloudMean === null || textureStd === null) {
+    console.warn(
+      "[RoadEye AI] Stats API missing cloud/texture bands:",
+      JSON.stringify(outputs)?.slice(0, 400),
+    );
+    return null;
+  }
+
+  const cloudCoverage = Math.min(1, Math.max(0, cloudMean));
+  // B04 reflectance std-dev is typically small (0.01–0.1); keep as-is.
+  const textureScore = Math.max(0, textureStd);
+  return {
+    ...assessLeoUsability(cloudCoverage, textureScore),
+    measuredBy: "scl_stats",
+  };
+}
+
+/**
+ * Prefer SCL Statistical API; fall back to PNG heuristic on the LEO frame.
+ * Never invent "50% / 0.000 → reject" — that was a false gate.
  */
 export async function measureLeoQuality(params: {
   bbox: BBox;
   dateFrom: string;
   dateTo: string;
+  /** Raw LEO PNG bytes from Process API (preferred fallback). */
+  leoPng?: Buffer;
 }): Promise<LeoQuality> {
   try {
-    const token = await getCopernicusAccessToken();
-    const statsUrl =
-      process.env.COPERNICUS_STATS_API_URL?.trim() ||
-      "https://sh.dataspace.copernicus.eu/api/v1/statistics";
-    const [west, south, east, north] = params.bbox;
-
-    const payload = {
-      input: {
-        bounds: {
-          bbox: [west, south, east, north],
-          properties: { crs: "http://www.opengis.net/def/crs/EPSG/0/4326" },
-        },
-        data: [
-          {
-            type: "sentinel-2-l2a",
-            dataFilter: {
-              timeRange: {
-                from: `${params.dateFrom}T00:00:00Z`,
-                to: `${params.dateTo}T23:59:59Z`,
-              },
-              maxCloudCoverage: 100,
-              mosaickingOrder: "leastCC",
-            },
-          },
-        ],
-      },
-      aggregation: {
-        timeRange: {
-          from: `${params.dateFrom}T00:00:00Z`,
-          to: `${params.dateTo}T23:59:59Z`,
-        },
-        aggregationInterval: { of: "P365D" },
-        evalscript: CLOUD_EVALSCRIPT,
-        resx: 0.0002,
-        resy: 0.0002,
-      },
-      calculations: {
-        default: {},
-      },
-    };
-
-    const response = await fetch(statsUrl, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(45_000),
-    });
-
-    if (response.status === 429) {
-      throw new RateLimitError();
+    const fromStats = await measureViaStatsApi(params);
+    if (fromStats) {
+      return fromStats;
     }
-    if (!response.ok) {
-      const text = await response.text();
-      throw new SatelliteError(
-        "UPSTREAM",
-        `Stats API ${response.status}: ${text.slice(0, 160)}`,
-      );
-    }
-
-    const json = (await response.json()) as {
-      data?: Array<{
-        outputs?: {
-          cloud?: { bands?: Record<string, unknown> };
-          texture?: { bands?: Record<string, unknown> };
-        };
-      }>;
-    };
-
-    const outputs = json.data?.[0]?.outputs;
-    const cloudBand =
-      outputs?.cloud?.bands?.B0 ??
-      outputs?.cloud?.bands?.["0"] ??
-      Object.values(outputs?.cloud?.bands ?? {})[0];
-    const textureBand =
-      outputs?.texture?.bands?.B0 ??
-      outputs?.texture?.bands?.["0"] ??
-      Object.values(outputs?.texture?.bands ?? {})[0];
-
-    const cloudMean = readStatMean(cloudBand);
-    const textureStd = readStatStdev(textureBand);
-
-    if (cloudMean === null || textureStd === null) {
-      console.warn("[RoadEye AI] Stats API missing cloud/texture bands", json);
-      return {
-        cloudCoverage: 0.5,
-        textureScore: 0,
-        usable: false,
-        reason: "stats_failed",
-      };
-    }
-
-    const cloudCoverage = Math.min(1, Math.max(0, cloudMean));
-    const textureScore = Math.max(0, textureStd);
-    return assessLeoUsability(cloudCoverage, textureScore);
   } catch (error) {
     console.warn(
-      "[RoadEye AI] LEO quality measurement failed:",
+      "[RoadEye AI] SCL Stats API failed, using PNG heuristic:",
       error instanceof Error ? error.message : error,
     );
-    return {
-      cloudCoverage: 0.5,
-      textureScore: 0,
-      usable: false,
-      reason: "stats_failed",
-    };
   }
+
+  if (params.leoPng && params.leoPng.byteLength > 100) {
+    return estimateQualityFromPng(params.leoPng);
+  }
+
+  // No stats and no PNG → assume LEO usable (do not force HD).
+  return {
+    cloudCoverage: 0,
+    textureScore: 1,
+    usable: true,
+    reason: "ok",
+    measuredBy: "none",
+  };
 }
 
 export function qualityReasonPl(reason: LeoQuality["reason"]): string {

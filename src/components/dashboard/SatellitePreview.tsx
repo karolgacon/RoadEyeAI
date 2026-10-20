@@ -15,6 +15,7 @@ interface QualityInfo {
   textureScore: number;
   usable: boolean;
   reason: string;
+  measuredBy?: string;
 }
 
 interface SatellitePreviewProps {
