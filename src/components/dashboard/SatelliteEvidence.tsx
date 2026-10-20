@@ -166,14 +166,14 @@ export function SatelliteEvidence({
         </svg>
 
         <div className="pointer-events-none absolute top-2 left-2 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white">
-          AOI analizy (biała ramka)
+          Korytarz jezdni (max zoom) — biała ramka
         </div>
         <div className="pointer-events-none absolute right-2 bottom-2 flex flex-col items-end gap-1 text-[10px] text-white">
           <span className="rounded-md bg-black/55 px-2 py-0.5">
-            żółta linia = oś drogi OSM
+            żółta = oś jezdni (jedyny obszar analizy)
           </span>
           <span className="rounded-md bg-black/55 px-2 py-0.5">
-            elipsy = obszary wskazane przez model
+            elipsy = defekty snapowane do jezdni
           </span>
         </div>
       </div>

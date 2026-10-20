@@ -41,8 +41,9 @@ export async function createMockSatelliteImage(params: {
   width?: number;
   height?: number;
 }): Promise<SatelliteImageResponse> {
-  const width = params.width ?? 768;
-  const height = params.height ?? 768;
+  // Higher pixel density for tight road corridors (~900 m).
+  const width = params.width ?? 1024;
+  const height = params.height ?? 1024;
   const seed = hashSeed(
     `${params.bbox.join(",")}|${params.dateFrom}|${params.dateTo}|${params.evalscriptId}`,
   );

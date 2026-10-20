@@ -5,6 +5,7 @@ import { saveAnalysisReport } from "@/lib/db/reports";
 import { findRoadById } from "@/lib/db/roads";
 import { getPgPool } from "@/lib/db/pg";
 import { runRoadVisionAnalysis } from "@/lib/ai/vision";
+import { roadAnalysisWindow } from "@/lib/map/roadWindow";
 import { CloudBlockedError } from "@/lib/satellite/errors";
 import type { ApiErrorBody } from "@/types/analysis";
 import { randomUUID } from "node:crypto";
@@ -96,6 +97,9 @@ export async function POST(request: Request) {
 
     const roadId = await ensureRoadId(parsed.data.roadId, scan.bbox);
     const road = await findRoadById(roadId);
+    const analysisGeom = road
+      ? roadAnalysisWindow(road.geometryGeoJson).geometry
+      : null;
 
     const vision = await runRoadVisionAnalysis({
       imageUrl: scan.imageUrl,
@@ -103,7 +107,7 @@ export async function POST(request: Request) {
       cloudCoverage: scan.cloudCoverage,
       evalscriptId: scan.evalscriptId,
       source: scan.source,
-      roadGeometry: road?.geometryGeoJson ?? null,
+      roadGeometry: analysisGeom,
     });
 
     const report = await saveAnalysisReport({

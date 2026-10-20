@@ -19,8 +19,8 @@ import {
   type ReportViewModel,
 } from "@/components/dashboard/ReportPanel";
 import type { BasemapId } from "@/components/gis/BasemapToggle";
-import { bboxFromGeoJson } from "@/lib/map/geo";
 import { geocodeDefects } from "@/lib/map/defectGeo";
+import { roadAnalysisWindow } from "@/lib/map/roadWindow";
 import type { ReportExportPayload } from "@/lib/pdf/reportTypes";
 import type { BBox } from "@/types/satellite";
 
@@ -169,8 +169,12 @@ export function GisDashboard() {
     if (!selectedRoad) {
       return;
     }
-    const bbox = bboxFromGeoJson(selectedRoad.geometryGeoJson);
-    await fetchSatelliteForBbox(bbox, selectedRoad.id);
+    // Tight corridor + ~900 m window = max zoom on the carriageway for the model.
+    const window = roadAnalysisWindow(selectedRoad.geometryGeoJson, {
+      maxLengthM: 900,
+      corridorHalfWidthM: 36,
+    });
+    await fetchSatelliteForBbox(window.bbox, selectedRoad.id);
   }, [selectedRoad, fetchSatelliteForBbox]);
 
   const handleAnalyzeAi = useCallback(async () => {
@@ -195,13 +199,16 @@ export function GisDashboard() {
       const evidenceUrl =
         data.evidence?.imageUrl ?? scanPreview.image.imageUrl;
       const evidenceBbox = data.evidence?.bbox ?? scanPreview.image.bbox;
-      const snapped = selectedRoad
+      const analysisGeom = selectedRoad
+        ? roadAnalysisWindow(selectedRoad.geometryGeoJson).geometry
+        : null;
+      const snapped = analysisGeom
         ? {
             ...data.report.result,
             surfaceDefects: geocodeDefects(
               data.report.result.surfaceDefects,
               evidenceBbox,
-              selectedRoad.geometryGeoJson,
+              analysisGeom,
             ),
           }
         : data.report.result;
@@ -221,14 +228,13 @@ export function GisDashboard() {
         evidenceImageUrl: evidenceUrl,
         evidenceBbox: evidenceBbox,
         evidenceSourceLabel:
-          data.evidence?.source === "esri"
-            ? "Esri World Imagery (podgląd)"
+              data.evidence?.source === "esri" ||
+            scanPreview.image.source === "esri"
+            ? "Esri — zoom na korytarz jezdni"
             : data.evidence?.source === "copernicus"
               ? "Sentinel-2 / Copernicus"
-              : scanPreview.image.source === "esri"
-                ? "Esri World Imagery (podgląd)"
-                : "Podgląd satelitarny",
-        roadGeometry: selectedRoad?.geometryGeoJson ?? null,
+              : "Podgląd satelitarny",
+        roadGeometry: analysisGeom,
         road: selectedRoad
           ? {
               ref: selectedRoad.ref,
@@ -279,14 +285,14 @@ export function GisDashboard() {
         // optional evidence frame
       }
 
-      const bbox =
-        evidenceBbox ?? bboxFromGeoJson(selectedRoad.geometryGeoJson);
+      const window = roadAnalysisWindow(selectedRoad.geometryGeoJson);
+      const bbox = evidenceBbox ?? window.bbox;
       const snapped = {
         ...data.result,
         surfaceDefects: geocodeDefects(
           data.result.surfaceDefects,
           bbox,
-          selectedRoad.geometryGeoJson,
+          window.geometry,
         ),
       };
 
@@ -306,9 +312,9 @@ export function GisDashboard() {
         evidenceSourceLabel:
           evidenceImageUrl?.startsWith("data:image/jpeg") ||
           evidenceImageUrl?.includes("arcgisonline")
-            ? "Esri World Imagery (podgląd)"
+            ? "Esri World Imagery — zoom na jezdnię"
             : "Podgląd satelitarny",
-        roadGeometry: selectedRoad.geometryGeoJson,
+        roadGeometry: window.geometry,
         road: data.road,
       });
     } catch (error) {

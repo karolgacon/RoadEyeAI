@@ -1,6 +1,7 @@
 import type { SurfaceDefect } from "@/types/analysis";
 import type { BBox } from "@/types/satellite";
 import { PCI_COLORS } from "@/types/pci";
+import { projectLngLatToImage } from "@/lib/map/roadWindow";
 
 /** Higher defect severity = worse damage → redder color. */
 export function colorForDefectSeverity(severity: 1 | 2 | 3 | 4 | 5): string {
@@ -17,10 +18,7 @@ function flattenCoordinates(geometry: RoadGeom): GeoJSON.Position[] {
   return geometry.coordinates.flat();
 }
 
-function segmentLength(
-  a: GeoJSON.Position,
-  b: GeoJSON.Position,
-): number {
+function segmentLength(a: GeoJSON.Position, b: GeoJSON.Position): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   return Math.hypot(dx, dy);
@@ -68,10 +66,9 @@ export function pointAlongRoad(
 }
 
 /**
- * Fill image-space (relativeX/Y) and map lat/lng.
- * - relativeX/Y: origin top-left of satellite frame (for overlay on image)
- * - alongRoad: 0–1 along road geometry → snaps markers onto the carriageway
- * - without road geometry: project image coords into bbox (north = top)
+ * Place defects on the carriageway.
+ * When road geometry is present, lat/lng AND image relativeX/Y are forced
+ * onto the road (alongRoad), so overlays never sit in fields.
  */
 export function geocodeDefects(
   defects: SurfaceDefect[],
@@ -83,63 +80,59 @@ export function geocodeDefects(
   const height = north - south;
 
   return defects.map((defect, index) => {
-    let x = defect.relativeX;
-    let y = defect.relativeY;
     let along = defect.alongRoad;
-
-    if (
-      typeof x !== "number" ||
-      typeof y !== "number" ||
-      !Number.isFinite(x) ||
-      !Number.isFinite(y)
-    ) {
-      x = 0.35 + ((index * 0.18) % 0.35);
-      y = 0.4 + ((index * 0.14) % 0.3);
-    }
-    x = Math.min(0.95, Math.max(0.05, x));
-    y = Math.min(0.95, Math.max(0.05, y));
-
     if (typeof along !== "number" || !Number.isFinite(along)) {
-      // Prefer horizontal position in frame as a proxy along the corridor.
-      along = x;
+      along = 0.2 + ((index * 0.25) % 0.6);
     }
-    along = Math.min(0.98, Math.max(0.02, along));
+    along = Math.min(0.95, Math.max(0.05, along));
 
     let lng: number;
     let lat: number;
+    let x: number;
+    let y: number;
 
     if (roadGeometry) {
       const onRoad = pointAlongRoad(roadGeometry, along);
       if (onRoad) {
         lng = onRoad.lng;
         lat = onRoad.lat;
+        const projected = projectLngLatToImage(lng, lat, bbox);
+        x = projected.x;
+        y = projected.y;
       } else {
-        lng = west + x * width;
-        lat = north - y * height;
+        x = 0.5;
+        y = 0.5;
+        lng = west + 0.5 * width;
+        lat = south + 0.5 * height;
       }
-    } else if (
-      typeof defect.lat === "number" &&
-      typeof defect.lng === "number" &&
-      Number.isFinite(defect.lat) &&
-      Number.isFinite(defect.lng)
-    ) {
-      lng = defect.lng;
-      lat = defect.lat;
     } else {
-      // Image top-left origin → geographic north-up frame.
+      let rx = defect.relativeX;
+      let ry = defect.relativeY;
+      if (
+        typeof rx !== "number" ||
+        typeof ry !== "number" ||
+        !Number.isFinite(rx) ||
+        !Number.isFinite(ry)
+      ) {
+        rx = 0.35 + ((index * 0.18) % 0.35);
+        ry = 0.45 + ((index * 0.1) % 0.2);
+      }
+      x = Math.min(0.95, Math.max(0.05, rx));
+      y = Math.min(0.95, Math.max(0.05, ry));
       lng = west + x * width;
       lat = north - y * height;
     }
 
-    const baseSize = 0.06 + defect.severity * 0.014;
+    // Keep ellipses tight on the carriageway at high zoom.
+    const baseSize = 0.04 + defect.severity * 0.008;
     const relativeW =
       typeof defect.relativeW === "number" && Number.isFinite(defect.relativeW)
-        ? Math.min(0.45, Math.max(0.04, defect.relativeW))
-        : baseSize;
+        ? Math.min(0.22, Math.max(0.03, defect.relativeW))
+        : baseSize * 1.4;
     const relativeH =
       typeof defect.relativeH === "number" && Number.isFinite(defect.relativeH)
-        ? Math.min(0.45, Math.max(0.04, defect.relativeH))
-        : baseSize * 0.85;
+        ? Math.min(0.16, Math.max(0.03, defect.relativeH))
+        : baseSize;
 
     return {
       ...defect,

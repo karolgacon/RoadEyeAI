@@ -3,24 +3,7 @@ import { describe, it } from "node:test";
 import { geocodeDefects, pointAlongRoad } from "@/lib/map/defectGeo";
 
 describe("geocodeDefects", () => {
-  it("maps image coords into north-up bbox without road", () => {
-    const [defect] = geocodeDefects(
-      [
-        {
-          type: "pothole",
-          severity: 4,
-          locationHint: "test",
-          relativeX: 0.5,
-          relativeY: 0.25,
-        },
-      ],
-      [20, 50, 21, 51],
-    );
-    assert.equal(defect.lng, 20.5);
-    assert.equal(defect.lat, 50.75);
-  });
-
-  it("snaps to road geometry via alongRoad", () => {
+  it("snaps image coords onto the road when geometry is provided", () => {
     const road: GeoJSON.LineString = {
       type: "LineString",
       coordinates: [
@@ -31,19 +14,22 @@ describe("geocodeDefects", () => {
     const [defect] = geocodeDefects(
       [
         {
-          type: "erosion",
-          severity: 2,
-          locationHint: "on road",
-          relativeX: 0.9,
-          relativeY: 0.9,
-          alongRoad: 0.25,
+          type: "pothole",
+          severity: 4,
+          locationHint: "test",
+          // Deliberately off-road image coords — must be overwritten.
+          relativeX: 0.1,
+          relativeY: 0.1,
+          alongRoad: 0.5,
         },
       ],
-      [20, 50, 21, 51],
+      [20, 49.9, 21, 50.1],
       road,
     );
-    assert.ok(Math.abs(defect.lng! - 20.25) < 1e-9);
-    assert.ok(Math.abs(defect.lat! - 50.0) < 1e-9);
+    assert.ok(Math.abs(defect.lng! - 20.5) < 1e-6);
+    assert.ok(Math.abs(defect.lat! - 50.0) < 1e-6);
+    // Projected onto horizontal road in this bbox → y near middle.
+    assert.ok(defect.relativeY! > 0.4 && defect.relativeY! < 0.6);
   });
 });
 
