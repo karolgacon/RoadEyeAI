@@ -92,20 +92,20 @@ export async function POST(request: Request) {
     });
 
     const via =
-      result.quality?.measuredBy === "png_heuristic"
-        ? "PNG"
-        : result.quality?.measuredBy === "scl_stats"
-          ? "SCL"
-          : "LEO";
+      result.quality?.measuredBy === "scl_stats"
+        ? "SCL Stats API"
+        : result.quality?.measuredBy === "scl_mask"
+          ? "SCL mask"
+          : "brak SCL";
     const qualityNote =
       result.visionSource === "esri" && result.quality
         ? result.quality.reason === "clouds"
           ? `LEO zachmurzony (${(result.quality.cloudCoverage * 100).toFixed(0)}% ${via}) — AI użyje HD.`
           : result.quality.reason === "blur"
-            ? "LEO zbyt rozmazany — AI użyje HD."
-            : "LEO nieczytelny — AI użyje HD."
+            ? `LEO zbyt jednolity (tekstura ${result.quality.textureScore.toFixed(3)}, ${via}) — AI użyje HD.`
+            : `Brak wiarygodnego SCL — AI użyje HD.`
         : result.visionSource === "leo"
-          ? `LEO OK (chmury ${(saved.cloudCoverage * 100).toFixed(0)}% ${via}) — AI analizuje Sentinel-2.`
+          ? `LEO OK (chmury ${(saved.cloudCoverage * 100).toFixed(0)}% ${via}, tekstura ${result.quality?.textureScore?.toFixed(3) ?? "—"}) — AI analizuje Sentinel-2.`
           : undefined;
 
     return NextResponse.json({

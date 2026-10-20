@@ -134,13 +134,20 @@ export function SatellitePreview({
 
           <dl className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
             <Info label="Evalscript" value={image.evalscriptId} />
-            <Info label="Chmury SCL" value={`${cloudPct}%`} />
             <Info
-              label="Tekstura LEO"
+              label="Chmury SCL"
+              value={`${cloudPct}%${
+                quality?.measuredBy === "scl_stats"
+                  ? " · Stats"
+                  : quality?.measuredBy === "scl_mask"
+                    ? " · mask"
+                    : ""
+              }`}
+            />
+            <Info
+              label="Tekstura"
               value={
-                quality
-                  ? quality.textureScore.toFixed(3)
-                  : "—"
+                quality ? quality.textureScore.toFixed(3) : "—"
               }
             />
             <Info

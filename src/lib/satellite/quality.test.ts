@@ -3,71 +3,74 @@ import { describe, it } from "node:test";
 import { PNG } from "pngjs";
 import {
   assessLeoUsability,
-  estimateQualityFromPng,
   isCloudScl,
+  textureFromLeoPng,
 } from "@/lib/satellite/quality";
 
 describe("assessLeoUsability", () => {
   it("marks clear textured scenes as usable", () => {
-    const q = assessLeoUsability(0.1, 0.05);
+    const q = assessLeoUsability(0.08, 0.04);
     assert.equal(q.usable, true);
     assert.equal(q.reason, "ok");
   });
 
-  it("allows moderate cloud when texture is present", () => {
-    const q = assessLeoUsability(0.45, 0.04);
-    assert.equal(q.usable, true);
-    assert.equal(q.reason, "ok");
-  });
-
-  it("rejects heavy cloud cover", () => {
-    const q = assessLeoUsability(0.7, 0.08);
+  it("rejects cloud above 25%", () => {
+    const q = assessLeoUsability(0.35, 0.08);
     assert.equal(q.usable, false);
     assert.equal(q.reason, "clouds");
   });
 
-  it("rejects flat/blurry texture even with low cloud", () => {
-    const q = assessLeoUsability(0.05, 0.002);
+  it("rejects low ground texture", () => {
+    const q = assessLeoUsability(0.05, 0.005);
     assert.equal(q.usable, false);
     assert.equal(q.reason, "blur");
   });
 });
 
-describe("estimateQualityFromPng", () => {
-  it("treats a varied non-white image as usable", () => {
-    const png = new PNG({ width: 32, height: 32 });
+describe("textureFromLeoPng", () => {
+  it("returns higher texture for varied clear pixels", () => {
+    const leo = new PNG({ width: 32, height: 32 });
+    const mask = new PNG({ width: 32, height: 32 });
     for (let y = 0; y < 32; y += 1) {
       for (let x = 0; x < 32; x += 1) {
         const i = (y * 32 + x) << 2;
-        const v = (x * 7 + y * 13) % 180;
-        png.data[i] = v;
-        png.data[i + 1] = (v + 40) % 200;
-        png.data[i + 2] = (v + 80) % 200;
-        png.data[i + 3] = 255;
+        const v = (x * 9 + y * 5) % 160;
+        leo.data[i] = v;
+        leo.data[i + 1] = (v + 30) % 180;
+        leo.data[i + 2] = (v + 60) % 180;
+        leo.data[i + 3] = 255;
+        // Clear (R=0)
+        mask.data[i] = 0;
+        mask.data[i + 1] = 0;
+        mask.data[i + 2] = 0;
+        mask.data[i + 3] = 255;
       }
     }
-    const q = estimateQualityFromPng(PNG.sync.write(png));
-    assert.equal(q.usable, true);
-    assert.equal(q.measuredBy, "png_heuristic");
-    assert.ok(q.textureScore > 0.01);
+    const score = textureFromLeoPng(PNG.sync.write(leo), PNG.sync.write(mask));
+    assert.ok(score > 0.03);
   });
 
-  it("rejects a near-white flat frame as cloudy/blurry", () => {
-    const png = new PNG({ width: 16, height: 16 });
-    for (let i = 0; i < png.data.length; i += 4) {
-      png.data[i] = 245;
-      png.data[i + 1] = 245;
-      png.data[i + 2] = 248;
-      png.data[i + 3] = 255;
+  it("ignores cloudy mask pixels", () => {
+    const leo = new PNG({ width: 16, height: 16 });
+    const mask = new PNG({ width: 16, height: 16 });
+    for (let i = 0; i < leo.data.length; i += 4) {
+      leo.data[i] = 40;
+      leo.data[i + 1] = 80;
+      leo.data[i + 2] = 40;
+      leo.data[i + 3] = 255;
+      mask.data[i] = 255; // all cloud
+      mask.data[i + 1] = 255;
+      mask.data[i + 2] = 255;
+      mask.data[i + 3] = 255;
     }
-    const q = estimateQualityFromPng(PNG.sync.write(png));
-    assert.equal(q.usable, false);
+    const score = textureFromLeoPng(PNG.sync.write(leo), PNG.sync.write(mask));
+    assert.equal(score, 0);
   });
 });
 
 describe("isCloudScl", () => {
   it("flags SCL cloud classes", () => {
-    assert.equal(isCloudScl(8), true);
+    assert.equal(isCloudScl(9), true);
     assert.equal(isCloudScl(4), false);
   });
 });

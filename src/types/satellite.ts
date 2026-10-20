@@ -15,6 +15,7 @@ export interface SatelliteScanMeta {
     textureScore?: number;
     usable?: boolean;
     reason?: string;
+    measuredBy?: string;
   };
 }
 
