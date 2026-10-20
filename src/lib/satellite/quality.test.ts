@@ -36,25 +36,37 @@ describe("assessVisionReadiness", () => {
     assert.equal(q.reason, "clouds");
   });
 
-  it("rejects soft LEO even with 0% clouds", () => {
+  it("allows typical soft-but-clear S2 corridor (~3.8×, ~7% HD)", () => {
     const q = assessVisionReadiness({
       cloudCoverage: 0,
       textureScore: 0.065,
-      sharpness: 0.01,
-      sharpnessRatio: 0.08,
+      sharpness: 0.003,
+      sharpnessRatio: 0.07,
+      upsample: 3.8,
+    });
+    assert.equal(q.usable, true);
+    assert.equal(q.reason, "ok");
+  });
+
+  it("rejects mush with almost no edges vs HD", () => {
+    const q = assessVisionReadiness({
+      cloudCoverage: 0,
+      textureScore: 0.02,
+      sharpness: 0.0005,
+      sharpnessRatio: 0.02,
       upsample: 2.0,
     });
     assert.equal(q.usable, false);
     assert.equal(q.reason, "soft");
   });
 
-  it("rejects heavy upsample typical of tight road corridors", () => {
+  it("rejects extreme upsample beyond corridor zoom", () => {
     const q = assessVisionReadiness({
       cloudCoverage: 0,
       textureScore: 0.1,
       sharpness: 0.05,
       sharpnessRatio: 0.5,
-      upsample: 4.0,
+      upsample: 6.0,
     });
     assert.equal(q.usable, false);
     assert.equal(q.reason, "upsampled");
@@ -86,10 +98,9 @@ describe("laplacianSharpness", () => {
 });
 
 describe("upsampleFactor", () => {
-  it("flags ~2.5 km bbox at 1024px as heavily upsampled for 10 m S2", () => {
-    // ~0.03 deg ≈ 3.3 km
+  it("computes upsample for ~2.5–3 km bbox at 1024px", () => {
     const f = upsampleFactor([21.0, 52.2, 21.03, 52.23], 1024);
-    assert.ok(f > 2.5);
+    assert.ok(f > 2.5 && f < 5.5);
   });
 });
 

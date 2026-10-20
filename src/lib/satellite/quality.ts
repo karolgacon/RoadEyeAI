@@ -93,12 +93,16 @@ export interface LeoQuality {
   measuredBy?: "scl_stats" | "scl_mask" | "none";
 }
 
-/** Absolute Laplacian floor — soft S2 corridors typically sit well below this. */
-const MIN_LEO_SHARPNESS = 0.028;
-/** LEO must retain at least this fraction of HD edge energy. */
-const MIN_SHARPNESS_RATIO = 0.22;
-/** Above this upsample, pavement Vision on LEO is unreliable. */
-const MAX_UPSAMPLE = 2.4;
+/**
+ * Vision gates tuned for Sentinel-2 reality (~10 m):
+ * clear but soft LEO (highway/fields visible) should pass; white-out /
+ * mush with almost no edges vs HD should still fall back.
+ */
+const MIN_LEO_SHARPNESS = 0.002;
+/** LEO vs HD edge energy — S2 is naturally much softer than Esri. */
+const MIN_SHARPNESS_RATIO = 0.05;
+/** ~2.5 km corridor → ~1024 px is often ~3–4× native; allow that. */
+const MAX_UPSAMPLE = 4.5;
 const MAX_CLOUD = 0.25;
 
 export function assessVisionReadiness(params: {
