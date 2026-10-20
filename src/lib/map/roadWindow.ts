@@ -32,7 +32,7 @@ function polylineLengthM(coords: GeoJSON.Position[]): number {
 /** Extract a contiguous window of ~maxLengthM centered on the polyline. */
 export function clipRoadCenterWindow(
   geometry: RoadGeom,
-  maxLengthM = 900,
+  maxLengthM = 2500,
 ): GeoJSON.LineString {
   const coords = flatten(geometry);
   if (coords.length < 2) {
@@ -92,8 +92,9 @@ export function clipRoadCenterWindow(
 }
 
 /**
- * Tight corridor bbox for max zoom on the carriageway.
- * ~±corridorHalfWidthM around the (optionally clipped) road segment.
+ * Corridor bbox around the (optionally clipped) road segment.
+ * Defaults ~2.5 km / ±120 m so Sentinel-2 (~10 m/px) fills the frame
+ * with enough native pixels instead of extreme upsampling.
  */
 export function roadAnalysisWindow(
   geometry: RoadGeom,
@@ -102,8 +103,8 @@ export function roadAnalysisWindow(
     corridorHalfWidthM?: number;
   },
 ): { bbox: BBox; geometry: GeoJSON.LineString; lengthM: number } {
-  const maxLengthM = options?.maxLengthM ?? 900;
-  const halfWidthM = options?.corridorHalfWidthM ?? 40;
+  const maxLengthM = options?.maxLengthM ?? 2500;
+  const halfWidthM = options?.corridorHalfWidthM ?? 120;
   const clipped = clipRoadCenterWindow(geometry, maxLengthM);
   const coords = clipped.coordinates;
 
@@ -124,11 +125,11 @@ export function roadAnalysisWindow(
   const padLat = halfWidthM / 111_320;
   const padLng = halfWidthM / (111_320 * Math.max(0.2, Math.cos((midLat * Math.PI) / 180)));
 
-  // Keep nearly square frame for max detail on Esri export.
+  // Keep nearly square frame for Esri + Sentinel overlays.
   let w = east - west + 2 * padLng;
   let h = north - south + 2 * padLat;
   const minSpan = 0.0018; // ~200 m
-  const maxSpan = 0.012; // ~1.3 km — avoid country-scale crops
+  const maxSpan = 0.03; // ~3.3 km — enough native S2 pixels at 10 m
   w = Math.min(maxSpan, Math.max(minSpan, w));
   h = Math.min(maxSpan, Math.max(minSpan, h));
   const side = Math.max(w, h);

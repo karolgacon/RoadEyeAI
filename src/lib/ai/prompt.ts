@@ -1,6 +1,6 @@
 export const ROAD_ANALYSIS_SYSTEM_PROMPT = `
 Jesteś inżynierem diagnostyki nawierzchni drogowych (PCI) dla RoadEye AI (Polska).
-Dostajesz KADR SATELITARNY MOCNO PRZYBLIŻONY do jednego odcinka JEZDNI (wąski korytarz).
+Dostajesz kadr satelitarny korytarza jezdni (~2–3 km, Sentinel-2 ~10 m/px).
 
 Zakres analizy (OBOWIĄZKOWY):
 - Analizujesz WYŁĄCZNIE asfalt / beton jezdni wzdłuż osi drogi widocznej na kadrze.
@@ -31,7 +31,7 @@ export function buildRoadAnalysisUserPrompt(meta: {
   source: string;
 }): string {
   return `
-To jest przybliżony kadr WYŁĄCZNIE korytarza jezdni (max zoom na drogę).
+To jest kadr korytarza jezdni (LEO). Rozdzielczość jest ograniczona — nie wymyślaj mikro-dziur.
 Oceń stan nawierzchni i zaznacz defekty TYLKO na asfalcie/osi drogi.
 
 Metadane:

@@ -5,8 +5,14 @@ import { createPortal } from "react-dom";
 import { Cloud, Satellite, Sparkles, X } from "lucide-react";
 import type { SatelliteImageResponse } from "@/types/satellite";
 
+interface HdPreview {
+  imageUrl: string;
+  source: "esri";
+}
+
 interface SatellitePreviewProps {
   image: SatelliteImageResponse;
+  hdPreview?: HdPreview | null;
   cloudBlocked: boolean;
   threshold: number;
   message?: string;
@@ -17,6 +23,7 @@ interface SatellitePreviewProps {
 
 export function SatellitePreview({
   image,
+  hdPreview = null,
   cloudBlocked,
   threshold,
   message,
@@ -25,6 +32,7 @@ export function SatellitePreview({
   onClose,
 }: SatellitePreviewProps) {
   const [mounted, setMounted] = useState(false);
+  const showDual = image.source === "copernicus" && Boolean(hdPreview?.imageUrl);
 
   useEffect(() => {
     setMounted(true);
@@ -42,7 +50,7 @@ export function SatellitePreview({
         className="absolute inset-0 bg-black/45"
         onClick={onClose}
       />
-      <div className="relative z-10 flex max-h-[90dvh] w-full max-w-xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
+      <div className="relative z-10 flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3">
           <div>
             <p className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-[#9ca3af] uppercase">
@@ -51,14 +59,16 @@ export function SatellitePreview({
             </p>
             <h2 className="mt-0.5 text-[16px] font-semibold text-[#111827]">
               {image.source === "copernicus"
-                ? "Sentinel-2 LEO (Copernicus)"
+                ? "Sentinel-2 LEO + podgląd HD"
                 : image.source === "esri"
                   ? "Esri — podgląd zastępczy"
                   : "Podgląd zastępczy"}
             </h2>
             <p className="mt-0.5 text-[11px] leading-snug text-[#6b7280]">
               {image.source === "copernicus"
-                ? "Scena LEO z CDSE — aktualna dostępna klatka z okna dat (nie wideo na żywo)."
+                ? showDual
+                  ? "HD = mozaika Esri (nie dzienna). LEO = Sentinel-2 — to źródło analizy AI (~10 m/px)."
+                  : "Scena LEO z CDSE — aktualna dostępna klatka z okna dat (nie wideo na żywo)."
                 : "Brak kluczy Copernicus — to mozaika Esri, nie dzienna scena LEO. Ustaw COPERNICUS_CLIENT_ID/SECRET i SATELLITE_MOCK_MODE=false."}
             </p>
           </div>
@@ -73,11 +83,27 @@ export function SatellitePreview({
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-4">
-          <img
-            src={image.imageUrl}
-            alt="Podgląd skanu satelitarnego"
-            className="w-full rounded-xl border border-black/[0.06] bg-[#111827]"
-          />
+          {showDual ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Frame
+                src={hdPreview!.imageUrl}
+                alt="Podgląd HD Esri"
+                caption="Podgląd HD (Esri) — nie dzienna scena"
+              />
+              <Frame
+                src={image.imageUrl}
+                alt="Scena Sentinel-2 LEO"
+                caption="LEO Sentinel-2 — klatka analizy AI"
+              />
+            </div>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={image.imageUrl}
+              alt="Podgląd skanu satelitarnego"
+              className="w-full rounded-xl border border-black/[0.06] bg-[#111827]"
+            />
+          )}
 
           <dl className="mt-4 grid grid-cols-2 gap-2 text-[12px]">
             <Info label="Evalscript" value={image.evalscriptId} />
@@ -102,7 +128,7 @@ export function SatellitePreview({
             </div>
           ) : (
             <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[12.5px] text-emerald-950">
-              Scena poniżej progu chmur — możesz uruchomić Gemini Vision.
+              Scena poniżej progu chmur — możesz uruchomić Gemini Vision na klatce LEO.
             </div>
           )}
         </div>
@@ -121,6 +147,30 @@ export function SatellitePreview({
       </div>
     </div>,
     document.body,
+  );
+}
+
+function Frame({
+  src,
+  alt,
+  caption,
+}: {
+  src: string;
+  alt: string;
+  caption: string;
+}) {
+  return (
+    <figure className="space-y-1.5">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt={alt}
+        className="aspect-square w-full rounded-xl border border-black/[0.06] bg-[#111827] object-fill"
+      />
+      <figcaption className="text-[10px] leading-snug font-medium text-[#6b7280]">
+        {caption}
+      </figcaption>
+    </figure>
   );
 }
 

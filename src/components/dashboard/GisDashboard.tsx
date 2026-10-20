@@ -47,6 +47,13 @@ interface FetchResponse {
   cloudBlocked: boolean;
   threshold: number;
   image: SatelliteImageResponse;
+  hdPreview?: {
+    imageUrl: string;
+    mimeType: string;
+    width: number;
+    height: number;
+    source: "esri";
+  } | null;
   message?: string;
 }
 
@@ -91,6 +98,7 @@ export function GisDashboard() {
   const [analyzeError, setAnalyzeError] = useState<string | null>(null);
   const [scanPreview, setScanPreview] = useState<{
     image: SatelliteImageResponse;
+    hdPreview?: FetchResponse["hdPreview"];
     cloudBlocked: boolean;
     threshold: number;
     message?: string;
@@ -143,6 +151,7 @@ export function GisDashboard() {
         }
         setScanPreview({
           image: data.image,
+          hdPreview: data.hdPreview ?? null,
           cloudBlocked: data.cloudBlocked,
           threshold: data.threshold,
           message: data.message,
@@ -169,10 +178,10 @@ export function GisDashboard() {
     if (!selectedRoad) {
       return;
     }
-    // Tight corridor + ~900 m window = max zoom on the carriageway for the model.
+    // ~2.5 km corridor so Sentinel-2 (~10 m/px) has enough native pixels.
     const window = roadAnalysisWindow(selectedRoad.geometryGeoJson, {
-      maxLengthM: 900,
-      corridorHalfWidthM: 36,
+      maxLengthM: 2500,
+      corridorHalfWidthM: 120,
     });
     await fetchSatelliteForBbox(window.bbox, selectedRoad.id);
   }, [selectedRoad, fetchSatelliteForBbox]);
@@ -413,6 +422,7 @@ export function GisDashboard() {
       {scanPreview ? (
         <SatellitePreview
           image={scanPreview.image}
+          hdPreview={scanPreview.hdPreview}
           cloudBlocked={scanPreview.cloudBlocked}
           threshold={scanPreview.threshold}
           message={scanPreview.message}

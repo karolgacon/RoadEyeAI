@@ -1,13 +1,18 @@
 import { getAppEnv } from "@/lib/utils/env";
 import { getEvalscript } from "@/lib/satellite/evalscript";
 import { createMockSatelliteImage } from "@/lib/satellite/mock";
+import { fetchEsriWorldImagerySnapshot } from "@/lib/satellite/esriSnapshot";
 import {
   NoSceneAvailableError,
   RateLimitError,
   SatelliteConfigError,
   SatelliteError,
 } from "@/lib/satellite/errors";
-import type { SatelliteFetchRequest, SatelliteFetchResult } from "@/lib/satellite/types";
+import type {
+  HdPreviewImage,
+  SatelliteFetchRequest,
+  SatelliteFetchResult,
+} from "@/lib/satellite/types";
 import type { EvalscriptId, SatelliteImageResponse } from "@/types/satellite";
 import { randomUUID } from "node:crypto";
 
@@ -62,6 +67,31 @@ async function getCopernicusToken(): Promise<string> {
   return json.access_token;
 }
 
+async function fetchHdPreview(bbox: SatelliteFetchRequest["bbox"]): Promise<
+  HdPreviewImage | undefined
+> {
+  try {
+    const shot = await fetchEsriWorldImagerySnapshot({
+      bbox,
+      width: 1024,
+      height: 1024,
+    });
+    return {
+      imageUrl: shot.imageUrl,
+      mimeType: shot.mimeType,
+      width: shot.width,
+      height: shot.height,
+      source: "esri",
+    };
+  } catch (error) {
+    console.warn(
+      "[RoadEye AI] Esri HD preview failed:",
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
+}
+
 async function fetchFromProcessApi(
   request: SatelliteFetchRequest,
 ): Promise<SatelliteImageResponse> {
@@ -89,6 +119,10 @@ async function fetchFromProcessApi(
               to: `${request.dateTo}T23:59:59Z`,
             },
             maxCloudCoverage: 80,
+          },
+          processing: {
+            upsampling: "BICUBIC",
+            downsampling: "BICUBIC",
           },
         },
       ],
@@ -157,6 +191,7 @@ async function fetchFromProcessApi(
 /**
  * Prefer real Sentinel-2 LEO (Copernicus) when credentials exist and mock is off.
  * Otherwise Esri basemap preview (aligned to EPSG:4326 for OSM overlays).
+ * When LEO succeeds, also attach an Esri HD frame for the same bbox (UI only).
  */
 export async function fetchSatelliteImage(
   request: SatelliteFetchRequest,
@@ -166,10 +201,16 @@ export async function fetchSatelliteImage(
   const canUseLeo = hasCopernicusCredentials();
 
   let image: SatelliteImageResponse;
+  let hdPreview: HdPreviewImage | undefined;
 
   if (!forcePreview && canUseLeo) {
     try {
-      image = await fetchFromProcessApi(request);
+      const [leo, hd] = await Promise.all([
+        fetchFromProcessApi(request),
+        fetchHdPreview(request.bbox),
+      ]);
+      image = leo;
+      hdPreview = hd;
     } catch (error) {
       console.warn(
         "[RoadEye AI] Sentinel-2/CDSE failed, falling back to Esri preview:",
@@ -206,6 +247,7 @@ export async function fetchSatelliteImage(
     image,
     cloudBlocked,
     threshold: env.cloudCoverageThreshold,
+    hdPreview,
   };
 }
 

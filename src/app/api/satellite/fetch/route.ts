@@ -91,6 +91,7 @@ export async function POST(request: Request) {
       cloudBlocked: result.cloudBlocked,
       threshold: result.threshold,
       image: saved,
+      hdPreview: result.hdPreview ?? null,
       message: result.cloudBlocked
         ? `Zachmurzenie ${(saved.cloudCoverage * 100).toFixed(0)}% > próg ${(result.threshold * 100).toFixed(0)}% — analiza AI będzie zablokowana`
         : undefined,

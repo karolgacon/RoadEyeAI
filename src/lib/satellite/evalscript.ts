@@ -9,7 +9,14 @@ function setup() {
   };
 }
 function evaluatePixel(sample) {
-  return [sample.B04, sample.B03, sample.B02, sample.dataMask];
+  // Mild gain for readability — does not invent spatial detail.
+  const g = 2.5;
+  return [
+    Math.min(1, g * sample.B04),
+    Math.min(1, g * sample.B03),
+    Math.min(1, g * sample.B02),
+    sample.dataMask
+  ];
 }
 `.trim();
 
