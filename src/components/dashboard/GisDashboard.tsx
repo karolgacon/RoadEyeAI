@@ -58,8 +58,12 @@ interface FetchResponse {
   quality?: {
     cloudCoverage: number;
     textureScore: number;
+    sharpness?: number;
+    sharpnessRatio?: number;
+    upsample?: number;
     usable: boolean;
     reason: string;
+    measuredBy?: string;
   } | null;
   message?: string;
 }

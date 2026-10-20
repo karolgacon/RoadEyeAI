@@ -13,6 +13,9 @@ interface HdPreview {
 interface QualityInfo {
   cloudCoverage: number;
   textureScore: number;
+  sharpness?: number;
+  sharpnessRatio?: number;
+  upsample?: number;
   usable: boolean;
   reason: string;
   measuredBy?: string;
@@ -145,9 +148,15 @@ export function SatellitePreview({
               }`}
             />
             <Info
-              label="Tekstura"
+              label="Ostrość"
               value={
-                quality ? quality.textureScore.toFixed(3) : "—"
+                quality?.sharpness !== undefined
+                  ? `${quality.sharpness.toFixed(3)}${
+                      quality.sharpnessRatio !== undefined
+                        ? ` · ${(quality.sharpnessRatio * 100).toFixed(0)}%HD`
+                        : ""
+                    }`
+                  : "—"
               }
             />
             <Info

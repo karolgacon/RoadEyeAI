@@ -97,15 +97,30 @@ export async function POST(request: Request) {
         : result.quality?.measuredBy === "scl_mask"
           ? "SCL mask"
           : "brak SCL";
+    const q = result.quality;
+    const sharpnessBit =
+      q?.sharpness !== undefined
+        ? `, ostrość ${q.sharpness.toFixed(3)}${
+            q.sharpnessRatio !== undefined
+              ? ` (${(q.sharpnessRatio * 100).toFixed(0)}% HD)`
+              : ""
+          }`
+        : "";
+    const upsampleBit =
+      q?.upsample !== undefined ? `, ↑${q.upsample.toFixed(1)}×` : "";
     const qualityNote =
-      result.visionSource === "esri" && result.quality
-        ? result.quality.reason === "clouds"
-          ? `LEO zachmurzony (${(result.quality.cloudCoverage * 100).toFixed(0)}% ${via}) — AI użyje HD.`
-          : result.quality.reason === "blur"
-            ? `LEO zbyt jednolity (tekstura ${result.quality.textureScore.toFixed(3)}, ${via}) — AI użyje HD.`
-            : `Brak wiarygodnego SCL — AI użyje HD.`
+      result.visionSource === "esri" && q
+        ? q.reason === "clouds"
+          ? `LEO zachmurzony (${(q.cloudCoverage * 100).toFixed(0)}% ${via}) — AI użyje HD.`
+          : q.reason === "soft"
+            ? `LEO zbyt rozmazany${sharpnessBit} — AI użyje HD.`
+            : q.reason === "upsampled"
+              ? `LEO zbyt powiększony względem 10 m${upsampleBit} — AI użyje HD.`
+              : q.reason === "blur"
+                ? `LEO zbyt jednolity — AI użyje HD.`
+                : `Brak wiarygodnego SCL — AI użyje HD.`
         : result.visionSource === "leo"
-          ? `LEO OK (chmury ${(saved.cloudCoverage * 100).toFixed(0)}% ${via}, tekstura ${result.quality?.textureScore?.toFixed(3) ?? "—"}) — AI analizuje Sentinel-2.`
+          ? `LEO OK (chmury ${(saved.cloudCoverage * 100).toFixed(0)}% ${via}${sharpnessBit}${upsampleBit}) — AI analizuje Sentinel-2.`
           : undefined;
 
     return NextResponse.json({

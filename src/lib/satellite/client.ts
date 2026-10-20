@@ -188,6 +188,8 @@ export async function fetchSatelliteImage(
         dateFrom: request.dateFrom,
         dateTo: request.dateTo,
         leoPng: leoResult.pngBuffer,
+        hdImageUrl: hd?.imageUrl,
+        imageWidth: leoResult.image.width,
       });
       image = {
         ...leoResult.image,
