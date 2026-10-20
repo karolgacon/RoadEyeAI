@@ -20,7 +20,9 @@ import {
 } from "@/components/dashboard/ReportPanel";
 import type { BasemapId } from "@/components/gis/BasemapToggle";
 import { bboxFromGeoJson } from "@/lib/map/geo";
+import { geocodeDefects } from "@/lib/map/defectGeo";
 import type { ReportExportPayload } from "@/lib/pdf/reportTypes";
+import type { BBox } from "@/types/satellite";
 
 const MapCanvas = dynamic(
   () =>
@@ -59,6 +61,13 @@ interface AnalysisResponse {
     modelId: string;
     createdAt: string;
     result: RoadAnalysisResult;
+  };
+  evidence?: {
+    imageUrl: string;
+    bbox: BBox;
+    width: number;
+    height: number;
+    source: string;
   };
   message?: string;
   code?: string;
@@ -183,8 +192,24 @@ export function GisDashboard() {
       if (!response.ok) {
         throw new Error(data.message ?? `HTTP ${response.status}`);
       }
+      const evidenceUrl =
+        data.evidence?.imageUrl ?? scanPreview.image.imageUrl;
+      const evidenceBbox = data.evidence?.bbox ?? scanPreview.image.bbox;
+      const snapped = selectedRoad
+        ? {
+            ...data.report.result,
+            surfaceDefects: geocodeDefects(
+              data.report.result.surfaceDefects,
+              evidenceBbox,
+              selectedRoad.geometryGeoJson,
+            ),
+          }
+        : data.report.result;
+
       setScanPreview(null);
-      setSelectedDefectIndex(null);
+      setSelectedDefectIndex(
+        snapped.surfaceDefects.length > 0 ? 0 : null,
+      );
       setReportView({
         reportId: data.report.id,
         roadId: data.report.roadId,
@@ -192,7 +217,8 @@ export function GisDashboard() {
         modelId: data.report.modelId,
         createdAt: data.report.createdAt,
         provider: data.provider,
-        result: data.report.result,
+        result: snapped,
+        evidenceImageUrl: evidenceUrl,
         road: selectedRoad
           ? {
               ref: selectedRoad.ref,
@@ -227,7 +253,36 @@ export function GisDashboard() {
       if (!response.ok) {
         throw new Error(data.message ?? `HTTP ${response.status}`);
       }
-      setSelectedDefectIndex(null);
+
+      let evidenceImageUrl: string | null = null;
+      let evidenceBbox: BBox | null = null;
+      try {
+        const scanRes = await fetch(`/api/scans/${data.report.scanId}`);
+        if (scanRes.ok) {
+          const scanJson = (await scanRes.json()) as {
+            scan?: SatelliteImageResponse;
+          };
+          evidenceImageUrl = scanJson.scan?.imageUrl ?? null;
+          evidenceBbox = scanJson.scan?.bbox ?? null;
+        }
+      } catch {
+        // optional evidence frame
+      }
+
+      const bbox =
+        evidenceBbox ?? bboxFromGeoJson(selectedRoad.geometryGeoJson);
+      const snapped = {
+        ...data.result,
+        surfaceDefects: geocodeDefects(
+          data.result.surfaceDefects,
+          bbox,
+          selectedRoad.geometryGeoJson,
+        ),
+      };
+
+      setSelectedDefectIndex(
+        snapped.surfaceDefects.length > 0 ? 0 : null,
+      );
       setReportView({
         reportId: data.report.id,
         roadId: data.report.roadId,
@@ -235,7 +290,8 @@ export function GisDashboard() {
         modelId: data.report.modelId,
         createdAt: data.report.createdAt,
         provider: data.report.provider,
-        result: data.result,
+        result: snapped,
+        evidenceImageUrl,
         road: data.road,
       });
     } catch (error) {
@@ -292,13 +348,14 @@ export function GisDashboard() {
 
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           <MapCanvas
-            key={mapNonce}
             basemap={basemap}
             classFilter={classFilter}
             search={search}
             selectedRoad={selectedRoad}
+            roadsRefreshToken={mapNonce}
             defectMarkers={reportView?.result.surfaceDefects ?? []}
             selectedDefectIndex={selectedDefectIndex}
+            defectFitKey={reportView?.reportId}
             onSelectDefect={setSelectedDefectIndex}
             onAoiChange={setAoi}
             onSelectRoad={handleSelectRoad}

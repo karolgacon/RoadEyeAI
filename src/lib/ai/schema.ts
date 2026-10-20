@@ -22,10 +22,12 @@ export const surfaceDefectSchema = z.object({
   type: surfaceDefectTypeSchema,
   severity: pciScoreSchema,
   locationHint: z.string().min(1),
+  evidenceNote: z.string().min(1).optional(),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
   relativeX: z.number().min(0).max(1).optional(),
   relativeY: z.number().min(0).max(1).optional(),
+  alongRoad: z.number().min(0).max(1).optional(),
 });
 
 export const roadAnalysisResultSchema = z.object({

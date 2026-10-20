@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSatelliteScanById } from "@/lib/db/scans";
 import { saveAnalysisReport } from "@/lib/db/reports";
+import { findRoadById } from "@/lib/db/roads";
 import { getPgPool } from "@/lib/db/pg";
 import { runRoadVisionAnalysis } from "@/lib/ai/vision";
 import { CloudBlockedError } from "@/lib/satellite/errors";
@@ -94,6 +95,7 @@ export async function POST(request: Request) {
     }
 
     const roadId = await ensureRoadId(parsed.data.roadId, scan.bbox);
+    const road = await findRoadById(roadId);
 
     const vision = await runRoadVisionAnalysis({
       imageUrl: scan.imageUrl,
@@ -101,6 +103,7 @@ export async function POST(request: Request) {
       cloudCoverage: scan.cloudCoverage,
       evalscriptId: scan.evalscriptId,
       source: scan.source,
+      roadGeometry: road?.geometryGeoJson ?? null,
     });
 
     const report = await saveAnalysisReport({
@@ -116,7 +119,15 @@ export async function POST(request: Request) {
       provider: vision.provider,
       modelId: vision.modelId,
       report,
+      evidence: {
+        imageUrl: scan.imageUrl,
+        bbox: scan.bbox,
+        width: scan.width,
+        height: scan.height,
+        source: scan.source,
+      },
     });
+
   } catch (error) {
     if (error instanceof CloudBlockedError) {
       return errorResponse(422, {

@@ -152,6 +152,7 @@ export function ReportDocument({ data }: { data: ReportExportPayload }) {
               >
                 • {DEFECT_LABELS_PL[d.type]} · sev {d.severity} —{" "}
                 {d.locationHint}
+                {d.evidenceNote ? ` — ${d.evidenceNote}` : ""}
                 {typeof d.lat === "number" && typeof d.lng === "number"
                   ? ` (${d.lat.toFixed(5)}, ${d.lng.toFixed(5)})`
                   : ""}

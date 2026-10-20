@@ -1,7 +1,7 @@
 "use client";
 
 import { CircleMarker, Popup, Tooltip, useMap } from "react-leaflet";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { SurfaceDefect } from "@/types/analysis";
 import { DEFECT_LABELS_PL } from "@/types/analysis";
 import {
@@ -12,40 +12,36 @@ import {
 interface DefectMarkersProps {
   defects: SurfaceDefect[];
   selectedIndex: number | null;
+  fitKey?: string;
   onSelect: (index: number) => void;
 }
 
-function FlyToSelected({
+function CameraForDefects({
   defects,
   selectedIndex,
+  fitKey,
 }: {
   defects: Array<SurfaceDefect & { lat: number; lng: number }>;
   selectedIndex: number | null;
+  fitKey?: string;
 }) {
   const map = useMap();
+  const fittedKey = useRef<string | null>(null);
+  const lastSelected = useRef<number | null>(null);
 
+  // One-time gentle fit when a report opens — never re-locks zoom afterwards.
   useEffect(() => {
-    if (selectedIndex === null) {
-      return;
-    }
-    const target = defects[selectedIndex];
-    if (!target) {
-      return;
-    }
-    map.flyTo([target.lat, target.lng], Math.max(map.getZoom(), 15), {
-      duration: 0.7,
-    });
-  }, [map, defects, selectedIndex]);
-
-  useEffect(() => {
+    const key = fitKey ?? "default";
     if (defects.length === 0) {
       return;
     }
-    if (selectedIndex !== null) {
+    if (fittedKey.current === key) {
       return;
     }
+    fittedKey.current = key;
+
     if (defects.length === 1) {
-      map.flyTo([defects[0].lat, defects[0].lng], 15, { duration: 0.6 });
+      map.setView([defects[0].lat, defects[0].lng], 14, { animate: true });
       return;
     }
     const lats = defects.map((d) => d.lat);
@@ -55,8 +51,29 @@ function FlyToSelected({
         [Math.min(...lats), Math.min(...lngs)],
         [Math.max(...lats), Math.max(...lngs)],
       ],
-      { padding: [48, 48], maxZoom: 16 },
+      { padding: [56, 56], maxZoom: 15, animate: true },
     );
+  }, [map, defects, fitKey]);
+
+  // Pan to selection without forcing high zoom (allows zoom-out afterwards).
+  useEffect(() => {
+    if (selectedIndex === null) {
+      lastSelected.current = null;
+      return;
+    }
+    if (lastSelected.current === selectedIndex) {
+      return;
+    }
+    lastSelected.current = selectedIndex;
+    const target = defects[selectedIndex];
+    if (!target) {
+      return;
+    }
+    const nextZoom = Math.min(Math.max(map.getZoom(), 13), 16);
+    map.panTo([target.lat, target.lng], { animate: true });
+    if (map.getZoom() < 13) {
+      map.setZoom(nextZoom, { animate: true });
+    }
   }, [map, defects, selectedIndex]);
 
   return null;
@@ -65,6 +82,7 @@ function FlyToSelected({
 export function DefectMarkers({
   defects,
   selectedIndex,
+  fitKey,
   onSelect,
 }: DefectMarkersProps) {
   const located = defectsWithCoordinates(defects);
@@ -75,7 +93,11 @@ export function DefectMarkers({
 
   return (
     <>
-      <FlyToSelected defects={located} selectedIndex={selectedIndex} />
+      <CameraForDefects
+        defects={located}
+        selectedIndex={selectedIndex}
+        fitKey={fitKey}
+      />
       {located.map((defect, index) => {
         const selected = selectedIndex === index;
         const color = colorForDefectSeverity(defect.severity);
@@ -84,11 +106,11 @@ export function DefectMarkers({
           <CircleMarker
             key={`${defect.type}-${defect.lat}-${defect.lng}-${index}`}
             center={[defect.lat, defect.lng]}
-            radius={selected ? 12 : 8}
+            radius={selected ? 11 : 7}
             pathOptions={{
               color: selected ? "#111827" : color,
               fillColor: color,
-              fillOpacity: selected ? 0.95 : 0.8,
+              fillOpacity: selected ? 0.95 : 0.85,
               weight: selected ? 3 : 2,
             }}
             eventHandlers={{
@@ -101,13 +123,12 @@ export function DefectMarkers({
               </span>
             </Tooltip>
             <Popup>
-              <div className="min-w-[160px] text-[12px]">
+              <div className="min-w-[180px] text-[12px]">
                 <p className="font-semibold text-[#111827]">{label}</p>
                 <p className="mt-0.5 text-[#6b7280]">{defect.locationHint}</p>
-                <p className="mt-1 tabular-nums text-[#9ca3af]">
-                  sev {defect.severity} · {defect.lat.toFixed(5)},{" "}
-                  {defect.lng.toFixed(5)}
-                </p>
+                {defect.evidenceNote ? (
+                  <p className="mt-1 text-[#374151]">{defect.evidenceNote}</p>
+                ) : null}
                 {defect.severity >= 4 ? (
                   <p className="mt-1 font-medium text-[#b91c1c]">
                     Priorytet remontu

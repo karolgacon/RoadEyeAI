@@ -6,22 +6,13 @@ import type { RoadAnalysisResult } from "@/types/analysis";
 import type { BBox } from "@/types/satellite";
 import { CloudBlockedError } from "@/lib/satellite/errors";
 
-function withGeocodedDefects(
-  result: RoadAnalysisResult,
-  bbox: BBox,
-): RoadAnalysisResult {
-  return {
-    ...result,
-    surfaceDefects: geocodeDefects(result.surfaceDefects, bbox),
-  };
-}
-
 export interface VisionAnalysisInput {
   imageUrl: string;
   bbox: BBox;
   cloudCoverage: number;
   evalscriptId: string;
   source: string;
+  roadGeometry?: GeoJSON.LineString | GeoJSON.MultiLineString | null;
 }
 
 export interface VisionAnalysisOutput {
@@ -29,6 +20,21 @@ export interface VisionAnalysisOutput {
   modelId: string;
   provider: "gemini" | "mock";
   raw: unknown;
+}
+
+function withGeocodedDefects(
+  result: RoadAnalysisResult,
+  bbox: BBox,
+  roadGeometry?: GeoJSON.LineString | GeoJSON.MultiLineString | null,
+): RoadAnalysisResult {
+  return {
+    ...result,
+    surfaceDefects: geocodeDefects(
+      result.surfaceDefects,
+      bbox,
+      roadGeometry,
+    ),
+  };
 }
 
 export async function runRoadVisionAnalysis(
@@ -47,7 +53,7 @@ export async function runRoadVisionAnalysis(
     try {
       const { result, modelId, raw } = await analyzeWithGemini(input);
       return {
-        result: withGeocodedDefects(result, input.bbox),
+        result: withGeocodedDefects(result, input.bbox, input.roadGeometry),
         modelId,
         provider: "gemini",
         raw,
@@ -69,9 +75,10 @@ export async function runRoadVisionAnalysis(
   const result = createMockRoadAnalysis({
     bbox: input.bbox,
     cloudCoverage: input.cloudCoverage,
+    roadGeometry: input.roadGeometry,
   });
   return {
-    result: withGeocodedDefects(result, input.bbox),
+    result: withGeocodedDefects(result, input.bbox, input.roadGeometry),
     modelId: "mock-vision-v1",
     provider: "mock",
     raw: result,

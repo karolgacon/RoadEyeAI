@@ -13,12 +13,19 @@ export interface SurfaceDefect {
   type: SurfaceDefectType;
   severity: 1 | 2 | 3 | 4 | 5;
   locationHint: string;
-  /** WGS84 — punkt na mapie (wypełniane po analizie). */
+  /** Krótko: dlaczego ten fragment uznano za uszkodzony. */
+  evidenceNote?: string;
+  /** WGS84 — punkt na mapie (snap do drogi po analizie). */
   lat?: number;
   lng?: number;
-  /** Pozycja względna w klatce AOI: 0=zachód/południe, 1=wschód/północ. */
+  /**
+   * Pozycja w klatce satelitarnej (origin = lewy-górny róg obrazu).
+   * relativeX: 0→1 lewo→prawo, relativeY: 0→1 góra→dół.
+   */
   relativeX?: number;
   relativeY?: number;
+  /** 0→1 wzdłuż geometrii odcinka drogi (do snapu na jezdnię). */
+  alongRoad?: number;
 }
 
 export interface RoadAnalysisResult {

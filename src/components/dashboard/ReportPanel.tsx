@@ -13,6 +13,7 @@ import {
   type ReportExportPayload,
 } from "@/lib/pdf/reportTypes";
 import { colorForDefectSeverity } from "@/lib/map/defectGeo";
+import { SatelliteEvidence } from "@/components/dashboard/SatelliteEvidence";
 
 export interface ReportViewModel {
   reportId: string;
@@ -23,6 +24,8 @@ export interface ReportViewModel {
   provider?: string;
   result: RoadAnalysisResult;
   road?: ReportExportPayload["road"];
+  /** Satellite frame used for the analysis (for evidence overlay). */
+  evidenceImageUrl?: string | null;
 }
 
 interface ReportPanelProps {
@@ -154,7 +157,7 @@ export function ReportPanel({
 
   return (
     <>
-      <aside className="hidden h-full w-[360px] shrink-0 flex-col border-l border-black/[0.06] bg-white md:flex">
+      <aside className="hidden h-full w-[380px] shrink-0 flex-col border-l border-black/[0.06] bg-white md:flex">
         {body}
       </aside>
       {mobile}
@@ -268,7 +271,22 @@ function ReportBody({
           Eksport lokalny — bez zewnętrznego storage
         </p>
 
-        <Section title="Punkty na mapie">
+        {report.evidenceImageUrl ? (
+          <SatelliteEvidence
+            imageUrl={report.evidenceImageUrl}
+            defects={result.surfaceDefects}
+            selectedIndex={selectedDefectIndex ?? null}
+            onSelect={(index) => onSelectDefect?.(index)}
+            conditionDescription={result.conditionDescription}
+          />
+        ) : (
+          <p className="rounded-xl border border-dashed border-[#d1d5db] px-3 py-2 text-[11px] text-[#9ca3af]">
+            Brak klatki satelitarnej przy tym raporcie — uruchom nową analizę,
+            aby zobaczyć oznaczenia na obrazie.
+          </p>
+        )}
+
+        <Section title="Lista defektów (mapa)">
           {result.surfaceDefects.length === 0 ? (
             <p className="text-[#6b7280]">Brak wykrytych anomalii.</p>
           ) : (
@@ -312,17 +330,13 @@ function ReportBody({
                           >
                             {d.locationHint}
                           </span>
-                          {hasPoint ? (
+                          {d.evidenceNote ? (
                             <span
-                              className={`mt-0.5 block font-mono text-[10px] ${active ? "text-white/55" : "text-[#9ca3af]"}`}
+                              className={`mt-0.5 block text-[11px] leading-snug ${active ? "text-white/80" : "text-[#4b5563]"}`}
                             >
-                              {d.lat!.toFixed(5)}, {d.lng!.toFixed(5)}
+                              {d.evidenceNote}
                             </span>
-                          ) : (
-                            <span className="mt-0.5 block text-[10px] text-[#9ca3af]">
-                              brak współrzędnych
-                            </span>
-                          )}
+                          ) : null}
                         </span>
                       </button>
                     </li>

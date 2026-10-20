@@ -37,6 +37,8 @@ interface MapCanvasProps {
   selectedRoad: RoadSegment | null;
   defectMarkers?: SurfaceDefect[];
   selectedDefectIndex?: number | null;
+  defectFitKey?: string;
+  roadsRefreshToken?: number;
   onSelectDefect?: (index: number) => void;
   onAoiChange: (bbox: BBox | null) => void;
   onSelectRoad: (road: RoadSegment) => void;
@@ -82,6 +84,8 @@ export function MapCanvas({
   selectedRoad,
   defectMarkers = [],
   selectedDefectIndex = null,
+  defectFitKey,
+  roadsRefreshToken = 0,
   onSelectDefect,
   onAoiChange,
   onSelectRoad,
@@ -134,7 +138,7 @@ export function MapCanvas({
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [viewportBbox, classFilter]);
+  }, [viewportBbox, classFilter, roadsRefreshToken]);
 
   const visibleRoads = useMemo(() => {
     return roads.filter((road) => matchesSearch(road, search));
@@ -167,9 +171,12 @@ export function MapCanvas({
       <MapContainer
         center={POLAND_CENTER}
         zoom={POLAND_DEFAULT_ZOOM}
+        minZoom={5}
+        maxZoom={18}
         className="h-full w-full"
         zoomControl={false}
         preferCanvas
+        scrollWheelZoom
       >
         <TileLayer url={tileUrl} attribution={attribution} />
         <ZoomControl position="bottomright" />
@@ -185,6 +192,7 @@ export function MapCanvas({
           <DefectMarkers
             defects={defectMarkers}
             selectedIndex={selectedDefectIndex}
+            fitKey={defectFitKey}
             onSelect={onSelectDefect}
           />
         ) : null}
