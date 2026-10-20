@@ -89,7 +89,7 @@ export function SatelliteEvidence({
         <img
           src={imageUrl}
           alt="Klatka satelitarna odcinka drogi"
-          className="absolute inset-0 h-full w-full object-cover select-none"
+          className="absolute inset-0 h-full w-full object-fill select-none"
           draggable={false}
         />
 
@@ -165,15 +165,13 @@ export function SatelliteEvidence({
           })}
         </svg>
 
-        <div className="pointer-events-none absolute top-2 left-2 rounded-md bg-black/55 px-2 py-1 text-[10px] font-medium text-white">
-          Korytarz jezdni (max zoom) — biała ramka
+        <div className="pointer-events-none absolute top-2 left-2 max-w-[70%] rounded-md bg-black/60 px-2 py-1 text-[10px] font-medium leading-snug text-white">
+          Biała ramka = kadr analizy · żółta linia = oś drogi z OpenStreetMap
+          (referencja, nie detekcja z obrazu)
         </div>
         <div className="pointer-events-none absolute right-2 bottom-2 flex flex-col items-end gap-1 text-[10px] text-white">
-          <span className="rounded-md bg-black/55 px-2 py-0.5">
-            żółta = oś jezdni (jedyny obszar analizy)
-          </span>
-          <span className="rounded-md bg-black/55 px-2 py-0.5">
-            elipsy = defekty snapowane do jezdni
+          <span className="rounded-md bg-black/60 px-2 py-0.5">
+            elipsy = miejsca wskazane przez AI na jezdni
           </span>
         </div>
       </div>

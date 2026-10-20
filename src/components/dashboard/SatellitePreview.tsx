@@ -50,16 +50,16 @@ export function SatellitePreview({
               Skan satelitarny
             </p>
             <h2 className="mt-0.5 text-[16px] font-semibold text-[#111827]">
-              {image.source === "esri"
-                ? "Esri World Imagery — podgląd jezdni"
-                : image.source === "mock"
-                  ? "Podgląd zastępczy"
-                  : "Sentinel-2 L2A"}
+              {image.source === "copernicus"
+                ? "Sentinel-2 LEO (Copernicus)"
+                : image.source === "esri"
+                  ? "Esri — podgląd zastępczy"
+                  : "Podgląd zastępczy"}
             </h2>
-            <p className="mt-0.5 text-[11px] text-[#9ca3af]">
-              {image.source === "esri"
-                ? "Mozaika satelitarna terenu (nie stream LEO na żywo)"
-                : "Klatka użyta do analizy AI"}
+            <p className="mt-0.5 text-[11px] leading-snug text-[#6b7280]">
+              {image.source === "copernicus"
+                ? "Scena LEO z CDSE — aktualna dostępna klatka z okna dat (nie wideo na żywo)."
+                : "Brak kluczy Copernicus — to mozaika Esri, nie dzienna scena LEO. Ustaw COPERNICUS_CLIENT_ID/SECRET i SATELLITE_MOCK_MODE=false."}
             </p>
           </div>
           <button

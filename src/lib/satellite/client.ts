@@ -19,6 +19,13 @@ function readRequired(name: string): string {
   return value;
 }
 
+function hasCopernicusCredentials(): boolean {
+  return Boolean(
+    process.env.COPERNICUS_CLIENT_ID?.trim() &&
+      process.env.COPERNICUS_CLIENT_SECRET?.trim(),
+  );
+}
+
 async function getCopernicusToken(): Promise<string> {
   const clientId = readRequired("COPERNICUS_CLIENT_ID");
   const clientSecret = readRequired("COPERNICUS_CLIENT_SECRET");
@@ -63,8 +70,8 @@ async function fetchFromProcessApi(
     process.env.COPERNICUS_PROCESS_API_URL?.trim() ||
     "https://sh.dataspace.copernicus.eu/api/v1/process";
 
-  const width = request.width ?? 512;
-  const height = request.height ?? 512;
+  const width = request.width ?? 1024;
+  const height = request.height ?? 1024;
   const [west, south, east, north] = request.bbox;
 
   const payload = {
@@ -81,7 +88,7 @@ async function fetchFromProcessApi(
               from: `${request.dateFrom}T00:00:00Z`,
               to: `${request.dateTo}T23:59:59Z`,
             },
-            maxCloudCoverage: 100,
+            maxCloudCoverage: 80,
           },
         },
       ],
@@ -127,15 +134,12 @@ async function fetchFromProcessApi(
   const buffer = Buffer.from(await response.arrayBuffer());
   const imageUrl = `data:image/png;base64,${buffer.toString("base64")}`;
 
-  // Process API doesn't always return cloud % in image response — estimate low when scene returned
-  const cloudCoverage = 0.12;
-
   return {
     scanId: randomUUID(),
     source: "copernicus",
     bbox: request.bbox,
     acquiredAt: new Date(`${request.dateTo}T12:00:00Z`).toISOString(),
-    cloudCoverage,
+    cloudCoverage: 0.12,
     width,
     height,
     bands:
@@ -150,22 +154,51 @@ async function fetchFromProcessApi(
   };
 }
 
+/**
+ * Prefer real Sentinel-2 LEO (Copernicus) when credentials exist and mock is off.
+ * Otherwise Esri basemap preview (aligned to EPSG:4326 for OSM overlays).
+ */
 export async function fetchSatelliteImage(
   request: SatelliteFetchRequest,
 ): Promise<SatelliteFetchResult> {
   const env = getAppEnv();
-  const useMock = env.satelliteMockMode;
+  const forcePreview = env.satelliteMockMode;
+  const canUseLeo = hasCopernicusCredentials();
 
-  const image = useMock
-    ? await createMockSatelliteImage({
+  let image: SatelliteImageResponse;
+
+  if (!forcePreview && canUseLeo) {
+    try {
+      image = await fetchFromProcessApi(request);
+    } catch (error) {
+      console.warn(
+        "[RoadEye AI] Sentinel-2/CDSE failed, falling back to Esri preview:",
+        error instanceof Error ? error.message : error,
+      );
+      image = await createMockSatelliteImage({
         bbox: request.bbox,
         dateFrom: request.dateFrom,
         dateTo: request.dateTo,
         evalscriptId: request.evalscriptId,
         width: request.width,
         height: request.height,
-      })
-    : await fetchFromProcessApi(request);
+      });
+    }
+  } else {
+    if (!forcePreview && !canUseLeo) {
+      console.warn(
+        "[RoadEye AI] Brak COPERNICUS_CLIENT_ID/SECRET — używam Esri (nie LEO).",
+      );
+    }
+    image = await createMockSatelliteImage({
+      bbox: request.bbox,
+      dateFrom: request.dateFrom,
+      dateTo: request.dateTo,
+      evalscriptId: request.evalscriptId,
+      width: request.width,
+      height: request.height,
+    });
+  }
 
   const cloudBlocked = image.cloudCoverage > env.cloudCoverageThreshold;
 

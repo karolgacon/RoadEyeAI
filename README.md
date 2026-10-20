@@ -9,7 +9,7 @@ Monitorowanie stanu nawierzchni dróg w Polsce: **Leaflet + PostGIS (OSM)** → 
 | App | Next.js 15 (App Router), TypeScript, Tailwind, shadcn/ui |
 | Mapa | Leaflet / OSM (+ Esri Imagery) |
 | DB | Supabase Free (PostgreSQL + PostGIS) |
-| Satelita | Copernicus CDSE (domyślnie `SATELLITE_MOCK_MODE=true`) |
+| Satelita | **Sentinel-2 LEO** przez Copernicus CDSE; bez kluczy → Esri preview |
 | AI | Google Gemini Vision (mock bez klucza) |
 | Deploy | Vercel Hobby |
 
@@ -57,7 +57,8 @@ Import Overpass: szczegóły w [`scripts/README-import.md`](scripts/README-impor
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | tak | |
 | `SUPABASE_SECRET_KEY` | zalecane | Storage / admin |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | zalecane | bez klucza → mock AI |
-| `SATELLITE_MOCK_MODE` | — | `true` na Hobby (bez CDSE) |
+| `COPERNICUS_CLIENT_ID` / `COPERNICUS_CLIENT_SECRET` | dla LEO | [dataspace.copernicus.eu](https://dataspace.copernicus.eu/) → Sentinel-2 |
+| `SATELLITE_MOCK_MODE` | — | `false` + klucze CDSE = dzienne scany LEO; `true` = tylko Esri |
 | `NEXT_PUBLIC_APP_URL` | zalecane | `https://twoja-domena.vercel.app` |
 | `CLOUD_COVERAGE_THRESHOLD` | — | domyślnie `0.20` |
 

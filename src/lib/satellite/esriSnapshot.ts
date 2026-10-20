@@ -1,9 +1,9 @@
 import type { BBox } from "@/types/satellite";
 
 /**
- * Free Esri World Imagery export for a WGS84 bbox.
- * Used as a realistic road/street preview when Copernicus mock mode is on
- * (or as visual fallback). Not a LEO stream — recent basemap mosaic.
+ * Esri World Imagery export in EPSG:4326 so pixel axes match our
+ * linear WGS84 overlays (OSM road centerline / defect ellipses).
+ * Fallback preview only — not a LEO acquisition.
  */
 export async function fetchEsriWorldImagerySnapshot(params: {
   bbox: BBox;
@@ -15,8 +15,8 @@ export async function fetchEsriWorldImagerySnapshot(params: {
   width: number;
   height: number;
 }> {
-  const width = params.width ?? 768;
-  const height = params.height ?? 768;
+  const width = params.width ?? 1024;
+  const height = params.height ?? 1024;
   const [west, south, east, north] = params.bbox;
 
   const url = new URL(
@@ -24,7 +24,8 @@ export async function fetchEsriWorldImagerySnapshot(params: {
   );
   url.searchParams.set("bbox", `${west},${south},${east},${north}`);
   url.searchParams.set("bboxSR", "4326");
-  url.searchParams.set("imageSR", "3857");
+  // MUST be 4326 — 3857 warps the frame vs our lat/lng polyline overlay.
+  url.searchParams.set("imageSR", "4326");
   url.searchParams.set("size", `${width},${height}`);
   url.searchParams.set("format", "jpg");
   url.searchParams.set("f", "image");

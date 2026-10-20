@@ -228,12 +228,13 @@ export function GisDashboard() {
         evidenceImageUrl: evidenceUrl,
         evidenceBbox: evidenceBbox,
         evidenceSourceLabel:
-              data.evidence?.source === "esri" ||
-            scanPreview.image.source === "esri"
-            ? "Esri — zoom na korytarz jezdni"
-            : data.evidence?.source === "copernicus"
-              ? "Sentinel-2 / Copernicus"
-              : "Podgląd satelitarny",
+          data.evidence?.source === "copernicus" ||
+          scanPreview.image.source === "copernicus"
+            ? "Sentinel-2 LEO (Copernicus CDSE)"
+            : data.evidence?.source === "esri" ||
+                scanPreview.image.source === "esri"
+              ? "Esri — podgląd (nie LEO)"
+              : "Podgląd zastępczy",
         roadGeometry: analysisGeom,
         road: selectedRoad
           ? {
@@ -309,11 +310,7 @@ export function GisDashboard() {
         result: snapped,
         evidenceImageUrl,
         evidenceBbox: bbox,
-        evidenceSourceLabel:
-          evidenceImageUrl?.startsWith("data:image/jpeg") ||
-          evidenceImageUrl?.includes("arcgisonline")
-            ? "Esri World Imagery — zoom na jezdnię"
-            : "Podgląd satelitarny",
+        evidenceSourceLabel: "Esri — podgląd (nie LEO)",
         roadGeometry: window.geometry,
         road: data.road,
       });
