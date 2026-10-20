@@ -76,6 +76,7 @@ interface AnalysisResponse {
     createdAt: string;
     result: RoadAnalysisResult;
   };
+  visionSource?: "leo" | "esri";
   evidence?: {
     imageUrl: string;
     bbox: BBox;
