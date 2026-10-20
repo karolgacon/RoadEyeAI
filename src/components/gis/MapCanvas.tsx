@@ -20,6 +20,7 @@ import type { BasemapId } from "@/components/gis/BasemapToggle";
 import { RoadLayer } from "@/components/gis/RoadLayer";
 import { SegmentHighlight } from "@/components/gis/SegmentHighlight";
 import { DefectMarkers } from "@/components/gis/DefectMarkers";
+import { AnalysisAoiLayer } from "@/components/gis/AnalysisAoiLayer";
 import type { NetworkStats } from "@/components/dashboard/LayersPanel";
 
 import "leaflet/dist/leaflet.css";
@@ -38,6 +39,7 @@ interface MapCanvasProps {
   defectMarkers?: SurfaceDefect[];
   selectedDefectIndex?: number | null;
   defectFitKey?: string;
+  analysisAoi?: BBox | null;
   roadsRefreshToken?: number;
   onSelectDefect?: (index: number) => void;
   onAoiChange: (bbox: BBox | null) => void;
@@ -85,6 +87,7 @@ export function MapCanvas({
   defectMarkers = [],
   selectedDefectIndex = null,
   defectFitKey,
+  analysisAoi = null,
   roadsRefreshToken = 0,
   onSelectDefect,
   onAoiChange,
@@ -188,6 +191,7 @@ export function MapCanvas({
           onSelect={onSelectRoad}
         />
         <SegmentHighlight road={selectedRoad} />
+        <AnalysisAoiLayer bbox={analysisAoi} />
         {defectMarkers.length > 0 && onSelectDefect ? (
           <DefectMarkers
             defects={defectMarkers}

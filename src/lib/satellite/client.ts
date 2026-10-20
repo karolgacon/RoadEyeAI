@@ -157,7 +157,7 @@ export async function fetchSatelliteImage(
   const useMock = env.satelliteMockMode;
 
   const image = useMock
-    ? createMockSatelliteImage({
+    ? await createMockSatelliteImage({
         bbox: request.bbox,
         dateFrom: request.dateFrom,
         dateTo: request.dateTo,

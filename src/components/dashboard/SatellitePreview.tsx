@@ -50,8 +50,17 @@ export function SatellitePreview({
               Skan satelitarny
             </p>
             <h2 className="mt-0.5 text-[16px] font-semibold text-[#111827]">
-              {image.source === "mock" ? "Mock Sentinel-2" : "Sentinel-2 L2A"}
+              {image.source === "esri"
+                ? "Esri World Imagery — podgląd jezdni"
+                : image.source === "mock"
+                  ? "Podgląd zastępczy"
+                  : "Sentinel-2 L2A"}
             </h2>
+            <p className="mt-0.5 text-[11px] text-[#9ca3af]">
+              {image.source === "esri"
+                ? "Mozaika satelitarna terenu (nie stream LEO na żywo)"
+                : "Klatka użyta do analizy AI"}
+            </p>
           </div>
           <button
             type="button"

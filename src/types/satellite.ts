@@ -1,4 +1,4 @@
-export type SatelliteSource = "copernicus" | "mock";
+export type SatelliteSource = "copernicus" | "esri" | "mock";
 export type SatelliteBand = "RGB" | "NDVI" | "NDMI";
 export type EvalscriptId = "true-color" | "ndvi" | "ndmi";
 

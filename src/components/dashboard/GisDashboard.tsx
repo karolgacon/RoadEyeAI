@@ -67,7 +67,7 @@ interface AnalysisResponse {
     bbox: BBox;
     width: number;
     height: number;
-    source: string;
+    source: "copernicus" | "esri" | "mock" | string;
   };
   message?: string;
   code?: string;
@@ -219,6 +219,16 @@ export function GisDashboard() {
         provider: data.provider,
         result: snapped,
         evidenceImageUrl: evidenceUrl,
+        evidenceBbox: evidenceBbox,
+        evidenceSourceLabel:
+          data.evidence?.source === "esri"
+            ? "Esri World Imagery (podgląd)"
+            : data.evidence?.source === "copernicus"
+              ? "Sentinel-2 / Copernicus"
+              : scanPreview.image.source === "esri"
+                ? "Esri World Imagery (podgląd)"
+                : "Podgląd satelitarny",
+        roadGeometry: selectedRoad?.geometryGeoJson ?? null,
         road: selectedRoad
           ? {
               ref: selectedRoad.ref,
@@ -292,6 +302,13 @@ export function GisDashboard() {
         provider: data.report.provider,
         result: snapped,
         evidenceImageUrl,
+        evidenceBbox: bbox,
+        evidenceSourceLabel:
+          evidenceImageUrl?.startsWith("data:image/jpeg") ||
+          evidenceImageUrl?.includes("arcgisonline")
+            ? "Esri World Imagery (podgląd)"
+            : "Podgląd satelitarny",
+        roadGeometry: selectedRoad.geometryGeoJson,
         road: data.road,
       });
     } catch (error) {
@@ -356,6 +373,7 @@ export function GisDashboard() {
             defectMarkers={reportView?.result.surfaceDefects ?? []}
             selectedDefectIndex={selectedDefectIndex}
             defectFitKey={reportView?.reportId}
+            analysisAoi={reportView?.evidenceBbox}
             onSelectDefect={setSelectedDefectIndex}
             onAoiChange={setAoi}
             onSelectRoad={handleSelectRoad}

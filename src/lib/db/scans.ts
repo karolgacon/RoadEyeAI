@@ -83,7 +83,7 @@ export async function getSatelliteScanById(
   const pool = getPgPool();
   const result = await pool.query<{
     id: string;
-    source: "copernicus" | "mock";
+    source: "copernicus" | "esri" | "mock";
     acquired_at: Date;
     cloud_coverage: number;
     image_path: string;

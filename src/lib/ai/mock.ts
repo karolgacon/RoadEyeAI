@@ -37,6 +37,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.5,
         relativeY: 0.48,
         alongRoad: 0.5,
+        relativeW: 0.16,
+        relativeH: 0.12,
       },
       {
         type: "pothole",
@@ -47,6 +49,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.62,
         relativeY: 0.52,
         alongRoad: 0.72,
+        relativeW: 0.08,
+        relativeH: 0.07,
       },
     ],
     2: [
@@ -59,6 +63,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.5,
         relativeY: 0.5,
         alongRoad: 0.4,
+        relativeW: 0.22,
+        relativeH: 0.06,
       },
       {
         type: "ditch_flooding",
@@ -69,6 +75,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.28,
         relativeY: 0.55,
         alongRoad: 0.55,
+        relativeW: 0.1,
+        relativeH: 0.14,
       },
     ],
     3: [
@@ -81,6 +89,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.52,
         relativeY: 0.45,
         alongRoad: 0.35,
+        relativeW: 0.14,
+        relativeH: 0.05,
       },
     ],
     4: [
@@ -93,6 +103,8 @@ export function createMockRoadAnalysis(params: {
         relativeX: 0.7,
         relativeY: 0.5,
         alongRoad: 0.65,
+        relativeW: 0.09,
+        relativeH: 0.11,
       },
     ],
     5: [],

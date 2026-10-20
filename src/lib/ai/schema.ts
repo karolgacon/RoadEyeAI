@@ -28,6 +28,8 @@ export const surfaceDefectSchema = z.object({
   relativeX: z.number().min(0).max(1).optional(),
   relativeY: z.number().min(0).max(1).optional(),
   alongRoad: z.number().min(0).max(1).optional(),
+  relativeW: z.number().min(0.02).max(0.5).optional(),
+  relativeH: z.number().min(0.02).max(0.5).optional(),
 });
 
 export const roadAnalysisResultSchema = z.object({

@@ -26,6 +26,9 @@ export interface SurfaceDefect {
   relativeY?: number;
   /** 0→1 wzdłuż geometrii odcinka drogi (do snapu na jezdnię). */
   alongRoad?: number;
+  /** Rozmiar obszaru defektu w klatce (ułamek szer./wys. obrazu). */
+  relativeW?: number;
+  relativeH?: number;
 }
 
 export interface RoadAnalysisResult {

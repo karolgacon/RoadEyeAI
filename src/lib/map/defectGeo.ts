@@ -131,11 +131,23 @@ export function geocodeDefects(
       lat = north - y * height;
     }
 
+    const baseSize = 0.06 + defect.severity * 0.014;
+    const relativeW =
+      typeof defect.relativeW === "number" && Number.isFinite(defect.relativeW)
+        ? Math.min(0.45, Math.max(0.04, defect.relativeW))
+        : baseSize;
+    const relativeH =
+      typeof defect.relativeH === "number" && Number.isFinite(defect.relativeH)
+        ? Math.min(0.45, Math.max(0.04, defect.relativeH))
+        : baseSize * 0.85;
+
     return {
       ...defect,
       relativeX: x,
       relativeY: y,
       alongRoad: along,
+      relativeW,
+      relativeH,
       lng,
       lat,
     };

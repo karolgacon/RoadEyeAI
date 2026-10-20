@@ -14,6 +14,7 @@ import {
 } from "@/lib/pdf/reportTypes";
 import { colorForDefectSeverity } from "@/lib/map/defectGeo";
 import { SatelliteEvidence } from "@/components/dashboard/SatelliteEvidence";
+import type { BBox } from "@/types/satellite";
 
 export interface ReportViewModel {
   reportId: string;
@@ -26,6 +27,9 @@ export interface ReportViewModel {
   road?: ReportExportPayload["road"];
   /** Satellite frame used for the analysis (for evidence overlay). */
   evidenceImageUrl?: string | null;
+  evidenceBbox?: BBox | null;
+  evidenceSourceLabel?: string;
+  roadGeometry?: GeoJSON.LineString | GeoJSON.MultiLineString | null;
 }
 
 interface ReportPanelProps {
@@ -278,6 +282,9 @@ function ReportBody({
             selectedIndex={selectedDefectIndex ?? null}
             onSelect={(index) => onSelectDefect?.(index)}
             conditionDescription={result.conditionDescription}
+            evidenceBbox={report.evidenceBbox}
+            roadGeometry={report.roadGeometry}
+            sourceLabel={report.evidenceSourceLabel}
           />
         ) : (
           <p className="rounded-xl border border-dashed border-[#d1d5db] px-3 py-2 text-[11px] text-[#9ca3af]">

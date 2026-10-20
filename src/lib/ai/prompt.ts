@@ -10,7 +10,8 @@ Zasady:
   shoulder_settlement, ditch_flooding, erosion.
 - Dla każdego defektu podaj:
   • relativeX, relativeY (0.0–1.0) w układzie OBRAZU: (0,0)=lewy-górny róg kadru,
-    X w prawo, Y w dół — dokładnie tam, gdzie widać uszkodzenie nawierzchni.
+    X w prawo, Y w dół — centrum uszkodzenia nawierzchni.
+  • relativeW, relativeH (0.04–0.35): rozmiar obszaru anomalii na kadrze (elipsa).
   • alongRoad (0.0–1.0): pozycja wzdłuż widocznego pasa drogi od początku do końca odcinka w kadrze.
   • evidenceNote: 1 zdanie po polsku — co widać i dlaczego to kwalifikuje do naprawy.
   • severity: 1 = drobny, 5 = pilny remont.
@@ -37,7 +38,7 @@ Metadane:
 
 Zwróć JSON:
 pciScore,
-surfaceDefects[{type,severity,locationHint,evidenceNote,relativeX,relativeY,alongRoad}],
+surfaceDefects[{type,severity,locationHint,evidenceNote,relativeX,relativeY,relativeW,relativeH,alongRoad}],
 conditionDescription, probableCauses[], recommendations[], potentialHazards[], confidenceScore.
 `.trim();
 }
