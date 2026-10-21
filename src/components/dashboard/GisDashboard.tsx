@@ -22,6 +22,7 @@ import type { BasemapId } from "@/components/gis/BasemapToggle";
 import { geocodeDefects } from "@/lib/map/defectGeo";
 import { roadAnalysisWindow } from "@/lib/map/roadWindow";
 import type { ReportExportPayload } from "@/lib/pdf/reportTypes";
+import { readJsonResponse } from "@/lib/http/readJson";
 import type { BBox } from "@/types/satellite";
 
 const MapCanvas = dynamic(
@@ -157,9 +158,9 @@ export function GisDashboard() {
             roadId,
           }),
         });
-        const data = (await response.json()) as FetchResponse & {
-          message?: string;
-        };
+        const data = await readJsonResponse<
+          FetchResponse & { message?: string }
+        >(response);
         if (!response.ok) {
           throw new Error(data.message ?? `HTTP ${response.status}`);
         }
@@ -217,7 +218,7 @@ export function GisDashboard() {
           roadId: selectedRoad?.id ?? null,
         }),
       });
-      const data = (await response.json()) as AnalysisResponse;
+      const data = await readJsonResponse<AnalysisResponse>(response);
       if (!response.ok) {
         throw new Error(data.message ?? `HTTP ${response.status}`);
       }
@@ -287,10 +288,9 @@ export function GisDashboard() {
     setAnalyzeError(null);
     try {
       const response = await fetch(`/api/roads/${selectedRoad.id}/report`);
-      const data = (await response.json()) as ReportExportPayload & {
-        ok?: boolean;
-        message?: string;
-      };
+      const data = await readJsonResponse<
+        ReportExportPayload & { ok?: boolean; message?: string }
+      >(response);
       if (!response.ok) {
         throw new Error(data.message ?? `HTTP ${response.status}`);
       }
@@ -300,9 +300,9 @@ export function GisDashboard() {
       try {
         const scanRes = await fetch(`/api/scans/${data.report.scanId}`);
         if (scanRes.ok) {
-          const scanJson = (await scanRes.json()) as {
+          const scanJson = await readJsonResponse<{
             scan?: SatelliteImageResponse;
-          };
+          }>(scanRes);
           evidenceImageUrl = scanJson.scan?.imageUrl ?? null;
           evidenceBbox = scanJson.scan?.bbox ?? null;
         }
