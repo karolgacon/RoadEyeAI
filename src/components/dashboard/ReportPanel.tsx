@@ -14,6 +14,7 @@ import {
 } from "@/lib/pdf/reportTypes";
 import { colorForDefectSeverity } from "@/lib/map/defectGeo";
 import { SatelliteEvidence } from "@/components/dashboard/SatelliteEvidence";
+import { AiProviderBadge } from "@/components/dashboard/AiProviderBadge";
 import type { BBox } from "@/types/satellite";
 
 export interface ReportViewModel {
@@ -198,7 +199,6 @@ function ReportBody({
         <div className="min-w-0">
           <p className="text-[11px] font-semibold tracking-[0.12em] text-[#9ca3af] uppercase">
             Raport AI
-            {report.provider ? ` · ${report.provider}` : ""}
           </p>
           <h2 className="mt-0.5 truncate text-[16px] font-semibold tracking-tight text-[#111827]">
             {title}
@@ -206,6 +206,12 @@ function ReportBody({
           <p className="truncate text-[12px] text-[#6b7280]">
             PCI {result.pciScore} — {PCI_LABELS[result.pciScore]}
           </p>
+          <div className="mt-2">
+            <AiProviderBadge
+              provider={report.provider}
+              modelId={report.modelId}
+            />
+          </div>
         </div>
         <button
           type="button"
@@ -365,6 +371,14 @@ function ReportBody({
         </Section>
 
         <dl className="space-y-0 divide-y divide-black/[0.06] rounded-2xl border border-black/[0.06] text-[12px]">
+          <MetaRow
+            label="Silnik AI"
+            value={
+              (report.provider ?? "").toLowerCase() === "mock"
+                ? "MOCK (bez Vision)"
+                : "Gemini Vision"
+            }
+          />
           <MetaRow label="Model" value={report.modelId} />
           <MetaRow
             label="Data"

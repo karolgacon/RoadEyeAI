@@ -56,7 +56,8 @@ export function getAppEnv() {
     satelliteMockMode: readBool("SATELLITE_MOCK_MODE", true),
     aiProvider: readEnv("AI_PROVIDER") ?? "gemini",
     googleGenerativeAiApiKey: readEnv("GOOGLE_GENERATIVE_AI_API_KEY"),
-    geminiVisionModel: readEnv("GEMINI_VISION_MODEL") ?? "gemini-2.0-flash",
+    // gemini-2.0-flash is shut down; 3.8 Flash is current multimodal Flash.
+    geminiVisionModel: readEnv("GEMINI_VISION_MODEL") ?? "gemini-3.8-flash",
     cloudCoverageThreshold: readNumber("CLOUD_COVERAGE_THRESHOLD", 0.2),
     databaseUrl: readEnv("DATABASE_URL"),
   };

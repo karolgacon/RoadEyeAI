@@ -198,10 +198,10 @@ export function SatellitePreview({
           >
             <Sparkles className="h-4 w-4" />
             {analyzingAi
-              ? "Analizuję Vision…"
+              ? "Analizuję Gemini Vision…"
               : aiOnHd
-                ? "Uruchom analizę AI (HD)"
-                : "Uruchom analizę AI (LEO)"}
+                ? "Uruchom Gemini Vision (HD)"
+                : "Uruchom Gemini Vision (LEO)"}
           </button>
         </div>
       </div>

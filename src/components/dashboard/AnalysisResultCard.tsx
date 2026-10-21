@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { PCI_COLORS, PCI_LABELS } from "@/types/pci";
 import type { RoadAnalysisResult } from "@/types/analysis";
+import { AiProviderBadge } from "@/components/dashboard/AiProviderBadge";
 
 interface AnalysisResultCardProps {
   result: RoadAnalysisResult;
@@ -33,14 +34,16 @@ export function AnalysisResultCard({
       />
       <div className="relative z-10 flex max-h-[90dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:rounded-2xl">
         <div className="flex items-start justify-between gap-3 border-b border-black/[0.06] px-4 py-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-[11px] font-semibold tracking-[0.12em] text-[#9ca3af] uppercase">
-              Raport AI · {provider}
+              Raport AI
             </p>
             <h2 className="text-[16px] font-semibold text-[#111827]">
               PCI {result.pciScore} — {PCI_LABELS[result.pciScore]}
             </h2>
-            <p className="text-[11px] text-[#9ca3af]">{modelId}</p>
+            <div className="mt-2">
+              <AiProviderBadge provider={provider} modelId={modelId} />
+            </div>
           </div>
           <button
             type="button"
